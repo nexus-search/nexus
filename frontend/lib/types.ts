@@ -15,6 +15,7 @@ export interface UploadResponse {
 export interface SearchResults {
   queryId: string;
   items: MediaItem[];
+  total?: number;
 }
 
 

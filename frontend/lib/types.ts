@@ -18,4 +18,15 @@ export interface SearchResults {
   total?: number;
 }
 
+export interface ServiceStatus {
+  status: string;
+}
+
+export interface HealthStatus {
+  status: string;
+  elasticsearch: ServiceStatus;
+  mongodb: ServiceStatus;
+  model: ServiceStatus;
+}
+
 

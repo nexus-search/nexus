@@ -163,9 +163,9 @@ async def search_media(
             if not media:
                 continue
             
-            # Build media URL
+            # Build media URL - keep relative, frontend will make it absolute
             media_url = f"/api/v1/media/{media_id}/file"
-            thumbnail_url = f"/api/v1/media/{media_id}/thumbnail" if media.content_type.startswith("image/") else None
+            thumbnail_url = f"/api/v1/media/{media_id}/file" if media.content_type.startswith("image/") else None
             
             media_type = "image" if media.content_type.startswith("image/") else "video"
             

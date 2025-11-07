@@ -85,7 +85,7 @@ async def search_similar(
         
         # Filter by threshold
         if threshold > 0:
-            media_items = [item for item in media_items if (item.similarityScore or 0) >= threshold]
+            media_items = [item for item in media_items if (item.similarity_score or 0) >= threshold]
         
         return SearchResults(
             queryId=query_id,

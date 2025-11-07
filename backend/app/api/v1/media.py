@@ -10,7 +10,7 @@ from app.core.dependencies import get_current_active_user, get_current_user_opti
 from app.core.file_validation import validate_upload_file
 from app.models.database import get_gridfs_bucket
 from app.models.media import Media
-from app.models.schemas import MediaItem, MediaUploadResponse, MessageResponse
+from app.models.schemas import MediaItem, MediaUploadResponse, MessageResponse, SearchResults
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -230,6 +230,51 @@ async def get_media_file(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to stream media file",
+        )
+
+
+@media_router.get("/", response_model=SearchResults)
+async def list_user_media(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(get_current_active_user),
+) -> SearchResults:
+    """List all media owned by the current user."""
+    try:
+        # Get user's media
+        media_list = Media.find_by_owner(str(current_user._id), limit=page_size * page)
+        
+        # Convert to MediaItem format
+        media_items = []
+        for media in media_list:
+            media_items.append(MediaItem(
+                id=str(media._id),
+                filename=media.filename,
+                mediaType=media.content_type.split("/")[0] if media.content_type else "image",
+                mediaUrl=f"/api/v1/media/{media._id}/file",
+                uploadDate=media.upload_date.isoformat() if media.upload_date else "",
+                fileSize=media.file_size,
+                tags=media.tags or [],
+                visibility=media.visibility,
+                ownerId=str(media.owner_id),
+            ))
+        
+        # Paginate
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_items = media_items[start_idx:end_idx]
+        
+        return SearchResults(
+            queryId="",
+            items=paginated_items,
+            total=len(media_items),
+            searchTimeMs=0,
+        )
+    except Exception as e:
+        logger.error(f"Error listing user media: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list media",
         )
 
 

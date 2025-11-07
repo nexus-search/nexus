@@ -4,7 +4,7 @@ import SearchBar from '@/components/SearchBar';
 import MediaGrid from '@/components/MediaGrid';
 import MediaViewer from '@/components/MediaViewer';
 import { useState, useRef, useEffect } from 'react';
-import { getSearchResults, searchSimilar } from '@/lib/api';
+import { searchSimilar } from '@/lib/api';
 import { MediaItem } from '@/lib/types';
 
 export default function SearchMediaPage() {
@@ -18,7 +18,7 @@ export default function SearchMediaPage() {
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
   const [searchComplete, setSearchComplete] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<{ url: string; name: string; type: string; file: File } | null>(null);
   const [status, setStatus] = useState<string>('');
   const [scope, setScope] = useState<string>('all');
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -27,20 +27,28 @@ export default function SearchMediaPage() {
     setMounted(true);
   }, []);
 
-  const handleSearch = async (file: File) => {
+  const handleSearch = async (file: File, limit: number = 20) => {
     setLoading(true);
     setSearchComplete(false);
     setUploadedFile({
       url: URL.createObjectURL(file),
       name: file.name,
-      type: file.type
+      type: file.type,
+      file: file
     });
     
     try {
-      const res = await searchSimilar(file, scope, 20, 0.5);
-      setItems(res.items);
+      const res = await searchSimilar(file, scope, limit, 0.5);
+      if (limit === 20) {
+        // First search
+        setItems(res.items);
+        setPage(1);
+      } else {
+        // Pagination - append new items
+        setItems(prev => [...prev, ...res.items]);
+      }
       setQueryId(res.queryId);
-      setPage(1);
+      setPage(Math.floor(limit / pageSize));
       setTotal(res.total || res.items.length);
       setSearchComplete(true);
     } catch (error: any) {
@@ -54,7 +62,7 @@ export default function SearchMediaPage() {
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    if (!queryId) return;
+    if (!uploadedFile?.file) return;
     const obs = new IntersectionObserver(async (entries) => {
       const entry = entries[0];
       if (!entry.isIntersecting) return;
@@ -63,17 +71,16 @@ export default function SearchMediaPage() {
       if (!canLoadMore) return;
       setIsFetchingMore(true);
       try {
-        const next = page + 1;
-        const res = await getSearchResults(queryId, next, pageSize);
-        setItems((prev) => [...prev, ...res.items]);
-        setPage(next);
+        // Increase limit to get more results
+        const nextLimit = (page + 1) * pageSize;
+        await handleSearch(uploadedFile.file, nextLimit);
       } finally {
         setIsFetchingMore(false);
       }
     }, { rootMargin: '200px' });
     obs.observe(el);
     return () => obs.disconnect();
-  }, [queryId, items.length, total, page, pageSize, isFetchingMore]);
+  }, [uploadedFile, items.length, total, page, pageSize, isFetchingMore]);
 
   const isVideo = uploadedFile?.type?.includes('video');
 

@@ -2,10 +2,16 @@ export type MediaType = 'image' | 'video';
 
 export interface MediaItem {
   id: string;
+  filename?: string;
   mediaUrl: string;
   thumbnailUrl?: string;
   mediaType: MediaType;
   similarityScore?: number;
+  fileSize?: number;
+  uploadDate?: string;
+  tags?: string[];
+  visibility?: string;
+  ownerId?: string;
 }
 
 export interface UploadResponse {
@@ -62,13 +68,14 @@ export interface User {
 
 // Collection Types
 export interface Collection {
-  collectionId: string;
+  id: string;
+  collectionId?: string; // For backward compatibility
   name: string;
-  description: string;
-  mediaCount: number;
-  createdAt: string;
-  updatedAt: string;
-  isPublic: boolean;
+  description?: string;
+  mediaCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  isPublic?: boolean;
 }
 
 export interface CollectionList {

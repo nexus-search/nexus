@@ -22,23 +22,11 @@ export default function Home() {
   }, []);
 
   const handleSearchText = async (q: string) => {
-    setSearching(true);
-    try {
-      const res = await searchByText(q);
-      router.push(`/results/${res.queryId}`);
-    } finally {
-      setSearching(false);
-    }
+    router.push(`/search/text?q=${encodeURIComponent(q)}`);
   };
 
   const handleSearchFile = async (file: File) => {
-    setSearching(true);
-    try {
-      const res = await searchSimilar(file);
-      router.push(`/results/${res.queryId}`);
-    } finally {
-      setSearching(false);
-    }
+    router.push('/search/media');
   };
 
   return (

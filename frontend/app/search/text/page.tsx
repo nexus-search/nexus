@@ -4,10 +4,12 @@ import SearchBar from '@/components/SearchBar';
 import MediaGrid from '@/components/MediaGrid';
 import MediaViewer from '@/components/MediaViewer';
 import { useState, useRef, useEffect } from 'react';
-import { getSearchResults, searchByText } from '@/lib/api';
+import { useSearchParams } from 'next/navigation';
+import { searchByText } from '@/lib/api';
 import { MediaItem } from '@/lib/types';
 
 export default function SearchTextPage() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState<boolean>(false);
   const [items, setItems] = useState<MediaItem[]>([]);
   const [active, setActive] = useState<MediaItem | null>(null);
@@ -19,24 +21,40 @@ export default function SearchTextPage() {
   const [mounted, setMounted] = useState(false);
   const [searchComplete, setSearchComplete] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [scope, setScope] = useState<string>('all');
+  const [status, setStatus] = useState<string>('');
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
+    // Check for initial query from URL params
+    const q = searchParams.get('q');
+    if (q) {
+      setSearchQuery(q);
+      handleSearchText(q, 1);
+    }
   }, []);
 
-  const handleSearchText = async (q: string) => {
+  const handleSearchText = async (q: string, pageNum: number = 1) => {
     setLoading(true);
     setSearchComplete(false);
     setSearchQuery(q);
     
     try {
-      const res = await searchByText(q, 1, pageSize);
-      setItems(res.items);
+      const res = await searchByText(q, scope, pageNum, pageSize);
+      if (pageNum === 1) {
+        setItems(res.items);
+        setPage(1);
+      } else {
+        setItems(prev => [...prev, ...res.items]);
+      }
       setQueryId(res.queryId);
-      setPage(1);
+      setPage(pageNum);
       setTotal(res.total || res.items.length);
       setSearchComplete(true);
+    } catch (error: any) {
+      console.error('Search failed:', error);
+      setStatus(error.message || 'Search failed');
     } finally {
       setLoading(false);
     }
@@ -45,7 +63,7 @@ export default function SearchTextPage() {
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    if (!queryId) return;
+    if (!searchQuery) return;
     const obs = new IntersectionObserver(async (entries) => {
       const entry = entries[0];
       if (!entry.isIntersecting) return;
@@ -55,16 +73,14 @@ export default function SearchTextPage() {
       setIsFetchingMore(true);
       try {
         const next = page + 1;
-        const res = await getSearchResults(queryId, next, pageSize);
-        setItems((prev) => [...prev, ...res.items]);
-        setPage(next);
+        await handleSearchText(searchQuery, next);
       } finally {
         setIsFetchingMore(false);
       }
     }, { rootMargin: '200px' });
     obs.observe(el);
     return () => obs.disconnect();
-  }, [queryId, items.length, total, page, pageSize, isFetchingMore]);
+  }, [searchQuery, items.length, total, page, pageSize, isFetchingMore, scope]);
 
   // Example search suggestions
   const suggestions = [
@@ -123,7 +139,7 @@ export default function SearchTextPage() {
               
               {/* Search Bar Container */}
               <div className="relative backdrop-blur-2xl bg-white/[0.07] border border-white/20 rounded-2xl p-5 sm:p-6 shadow-2xl">
-                <SearchBar onSearchText={handleSearchText} loading={loading} showText={true} showMedia={false} />
+                <SearchBar onSearchText={(q) => handleSearchText(q, 1)} loading={loading} showText={true} showMedia={false} />
               </div>
             </div>
 
@@ -161,7 +177,7 @@ export default function SearchTextPage() {
                   {suggestions.map((suggestion, i) => (
                     <button
                       key={i}
-                      onClick={() => handleSearchText(suggestion.text)}
+                      onClick={() => handleSearchText(suggestion.text, 1)}
                       className="group px-4 py-2 rounded-full bg-gradient-to-r from-purple-600/10 to-pink-600/10 border border-purple-500/20 hover:border-purple-400/40 text-gray-300 hover:text-white transition-all duration-300 hover:scale-105"
                     >
                       <span className="flex items-center gap-2 text-sm">

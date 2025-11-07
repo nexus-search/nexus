@@ -19,6 +19,8 @@ export default function SearchMediaPage() {
   const [mounted, setMounted] = useState(false);
   const [searchComplete, setSearchComplete] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [status, setStatus] = useState<string>('');
+  const [scope, setScope] = useState<string>('all');
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -35,12 +37,15 @@ export default function SearchMediaPage() {
     });
     
     try {
-      const res = await searchSimilar(file, undefined, 1, pageSize);
+      const res = await searchSimilar(file, scope, 20, 0.5);
       setItems(res.items);
       setQueryId(res.queryId);
       setPage(1);
       setTotal(res.total || res.items.length);
       setSearchComplete(true);
+    } catch (error: any) {
+      console.error('Search failed:', error);
+      setStatus(error.message || 'Search failed');
     } finally {
       setLoading(false);
     }

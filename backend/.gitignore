@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# Ignore temp uploads or generated files
+uploads/
+tmp/
+

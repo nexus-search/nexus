@@ -10,16 +10,23 @@ from elasticsearch import exceptions as es_exceptions
 logger = logging.getLogger(__name__)
 
 MEDIA_INDEX_MAPPING: Dict[str, Any] = {
+    "settings": {
+        "number_of_shards": 3,
+        "number_of_replicas": 1,
+    },
     "mappings": {
         "properties": {
-            "file_id": {"type": "keyword"},
+            "media_id": {"type": "keyword"},
+            "owner_id": {"type": "keyword"},  # null for public/shared media
+            "visibility": {"type": "keyword"},  # "public" or "private"
             "embedding": {
                 "type": "dense_vector",
                 "dims": 512,
                 "index": True,
                 "similarity": "cosine",
             },
-            "file_type": {"type": "keyword"},
+            "content_type": {"type": "keyword"},
+            "tags": {"type": "keyword"},
             "upload_date": {"type": "date"},
             "filename": {"type": "text"},
             "metadata": {"type": "object"},

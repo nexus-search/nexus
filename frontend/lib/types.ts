@@ -9,13 +9,19 @@ export interface MediaItem {
 }
 
 export interface UploadResponse {
-  id: string;
+  mediaId: string;
+  filename: string;
+  fileSize: number;
+  visibility: string;
+  uploadDate: string;
+  embeddingStatus: string;
 }
 
 export interface SearchResults {
   queryId: string;
   items: MediaItem[];
   total?: number;
+  searchTimeMs?: number;
 }
 
 export interface ServiceStatus {
@@ -27,6 +33,46 @@ export interface HealthStatus {
   elasticsearch: ServiceStatus;
   mongodb: ServiceStatus;
   model: ServiceStatus;
+}
+
+// Authentication Types
+export interface UserRegister {
+  email: string;
+  username: string;
+  password: string;
+}
+
+export interface UserLogin {
+  email: string;
+  password: string;
+}
+
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+}
+
+export interface User {
+  userId: string;
+  email: string;
+  username: string;
+}
+
+// Collection Types
+export interface Collection {
+  collectionId: string;
+  name: string;
+  description: string;
+  mediaCount: number;
+  createdAt: string;
+  updatedAt: string;
+  isPublic: boolean;
+}
+
+export interface CollectionList {
+  collections: Collection[];
 }
 
 

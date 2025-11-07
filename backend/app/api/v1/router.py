@@ -5,10 +5,20 @@ from typing import List
 
 from fastapi import APIRouter, Body, Query, UploadFile, File
 
+from app.api.v1.auth import auth_router
+from app.api.v1.collections import collections_router
+from app.api.v1.media import media_router
+from app.api.v1.search import search_router
 from app.models.schemas import MediaItem, SearchResults
 
 
 api_router = APIRouter(prefix="/api/v1")
+
+# Include routers
+api_router.include_router(auth_router)
+api_router.include_router(media_router)
+api_router.include_router(search_router)
+api_router.include_router(collections_router)
 
 
 def _generate_mock_items(query: str, count: int) -> List[MediaItem]:
@@ -66,15 +76,4 @@ async def get_search_results(
     start = (page - 1) * page_size
     paginated_items = items[start : start + page_size]
     return SearchResults(queryId=query_id, items=paginated_items, total=len(items))
-
-
-@api_router.get("/media/{media_id}", response_model=MediaItem)
-async def get_media(media_id: str) -> MediaItem:
-    seed = urllib.parse.quote(media_id)
-    return MediaItem(
-        id=media_id,
-        mediaUrl=f"https://picsum.photos/seed/{seed}/1200/800",
-        thumbnailUrl=f"https://picsum.photos/seed/{seed}/400/300",
-        mediaType="image",
-    )
 

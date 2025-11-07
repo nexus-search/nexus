@@ -3,7 +3,7 @@ import Header from '@/components/Header';
 import MediaGrid from '@/components/MediaGrid';
 import SearchBar from '@/components/SearchBar';
 import { useEffect, useState } from 'react';
-import { getSearchResults, searchByText, searchSimilar } from '@/lib/api';
+import { searchByText, searchSimilar } from '@/lib/api';
 import { MediaItem } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import MediaViewer from '@/components/MediaViewer';
@@ -18,11 +18,7 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
-    (async () => {
-      const res = await getSearchResults('demo');
-      setItems(res.items);
-      setLoading(false);
-    })();
+    setLoading(false);
   }, []);
 
   const handleSearchText = async (q: string) => {

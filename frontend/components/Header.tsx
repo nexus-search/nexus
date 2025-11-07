@@ -1,12 +1,15 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Header = () => {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { isAuthenticated, user, logout } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -216,6 +219,47 @@ const Header = () => {
                       </Link>
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Auth Buttons */}
+            <div className="flex items-center gap-3">
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    href="/upload"
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-medium hover:from-blue-700 hover:to-cyan-700 transition-all duration-200"
+                  >
+                    Upload
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-300 hidden sm:inline">{user?.username}</span>
+                    <button
+                      onClick={() => {
+                        logout();
+                        router.push('/');
+                      }}
+                      className="px-4 py-2 rounded-lg bg-gray-800 text-gray-300 text-sm font-medium hover:bg-gray-700 transition-all duration-200"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/auth/login"
+                    className="px-4 py-2 rounded-lg text-gray-300 text-sm font-medium hover:bg-white/5 transition-all duration-200"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/auth/register"
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white text-sm font-medium hover:from-blue-700 hover:to-cyan-700 transition-all duration-200"
+                  >
+                    Sign Up
+                  </Link>
                 </div>
               )}
             </div>

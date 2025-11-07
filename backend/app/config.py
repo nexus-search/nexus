@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     default_top_k: int = Field(default=10, alias="DEFAULT_TOP_K")
     default_similarity_threshold: float = Field(default=0.5, alias="DEFAULT_SIMILARITY_THRESHOLD")
 
+    # JWT Authentication
+    jwt_secret_key: str = Field(default="our-secret-key-here-change-in-production", alias="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(default=30, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    refresh_token_expire_days: int = Field(default=7, alias="REFRESH_TOKEN_EXPIRE_DAYS")
+
+    # User Storage
+    default_user_quota_gb: int = Field(default=1, alias="DEFAULT_USER_QUOTA_GB")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

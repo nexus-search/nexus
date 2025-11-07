@@ -155,6 +155,16 @@ export function getMedia(id: string): Promise<MediaItem> {
   return fetchApi(`/api/v1/media/${id}`);
 }
 
+export async function getUserMedia(
+  page: number = 1,
+  pageSize: number = 20
+): Promise<SearchResults> {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
+  return fetchApi(`/api/v1/media?${params.toString()}`, {}, true);
+}
+
 export function getMediaFile(id: string): string {
   return `${API_BASE_URL}/api/v1/media/${id}/file`;
 }

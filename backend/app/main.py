@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.auth import init_auth_indexes
 from app.api.v1.router import api_router
 from app.config import get_settings
 from app.models.database import (
@@ -39,6 +40,7 @@ def _initialise_infrastructure() -> None:
     init_clients()
     es_client = get_elasticsearch_client()
     ensure_media_index(es_client, settings.elasticsearch_index)
+    init_auth_indexes()
 
 
 @app.on_event("startup")

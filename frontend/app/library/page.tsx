@@ -2,7 +2,7 @@
 import Header from '@/components/Header';
 import MediaGrid from '@/components/MediaGrid';
 import MediaViewer from '@/components/MediaViewer';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getUserMedia, deleteMedia } from '@/lib/api';
 import { MediaItem } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function LibraryPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -22,20 +22,18 @@ export default function LibraryPage() {
   const [filter, setFilter] = useState<'all' | 'image' | 'video'>('all');
   const pageSize = 20;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const itemsRef = useRef<MediaItem[]>([]);
+  const totalRef = useRef<number>(0);
+  const pageRef = useRef<number>(1);
 
   useEffect(() => {
     setMounted(true);
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       router.push('/auth/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    loadMedia(1);
-  }, [isAuthenticated]);
-
-  const loadMedia = async (pageNum: number = 1) => {
+  const loadMedia = useCallback(async (pageNum: number = 1) => {
     if (pageNum === 1) {
       setLoading(true);
     } else {
@@ -45,39 +43,60 @@ export default function LibraryPage() {
       const res = await getUserMedia(pageNum, pageSize);
       if (pageNum === 1) {
         setItems(res.items);
+        itemsRef.current = res.items;
         setPage(1);
+        pageRef.current = 1;
       } else {
-        setItems(prev => [...prev, ...res.items]);
+        setItems(prev => {
+          const newItems = [...prev, ...res.items];
+          itemsRef.current = newItems;
+          return newItems;
+        });
+        setPage(pageNum);
+        pageRef.current = pageNum;
       }
       setTotal(res.total || 0);
-      setPage(pageNum);
+      totalRef.current = res.total || 0;
     } catch (error: any) {
       console.error('Failed to load media:', error);
     } finally {
       setLoading(false);
       setIsFetchingMore(false);
     }
-  };
+  }, [pageSize]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    loadMedia(1);
+  }, [isAuthenticated, loadMedia]);
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el) return;
+    if (!el || !isAuthenticated) return;
+    if (loading) return;
+    
     const obs = new IntersectionObserver(async (entries) => {
       const entry = entries[0];
       if (!entry.isIntersecting) return;
       if (isFetchingMore) return;
-      const canLoadMore = items.length < total;
+      
+      const canLoadMore = itemsRef.current.length < totalRef.current;
       if (!canLoadMore) return;
+      
       setIsFetchingMore(true);
       try {
-        await loadMedia(page + 1);
+        await loadMedia(pageRef.current + 1);
       } finally {
         setIsFetchingMore(false);
       }
-    }, { rootMargin: '200px' });
+    }, { 
+      rootMargin: '400px',
+      threshold: 0.1
+    });
+    
     obs.observe(el);
     return () => obs.disconnect();
-  }, [items.length, total, page, isFetchingMore]);
+  }, [isAuthenticated, loading, loadMedia]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this media?')) return;
@@ -228,7 +247,11 @@ export default function LibraryPage() {
           ) : filtered.length > 0 ? (
             <>
               <MediaGrid items={filtered} onItemClick={setActive} />
-              <div ref={sentinelRef} className="h-10" />
+              {filtered.length < total && (
+                <div ref={sentinelRef} className="h-20 flex items-center justify-center">
+                  <div className="w-1 h-1" />
+                </div>
+              )}
               
               {/* Loading More Indicator */}
               {isFetchingMore && (
@@ -314,6 +337,13 @@ export default function LibraryPage() {
           mediaUrl={active.mediaUrl}
           mediaType={active.mediaType}
           onClose={() => setActive(null)}
+          items={filtered}
+          currentIndex={filtered.findIndex(item => item.id === active.id)}
+          onNavigate={(index) => {
+            if (filtered[index]) {
+              setActive(filtered[index]);
+            }
+          }}
         />
       )}
     </div>

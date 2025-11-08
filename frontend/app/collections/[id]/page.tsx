@@ -16,7 +16,7 @@ type CollectionPageProps = {
 
 export default function CollectionDetailPage({ params }: CollectionPageProps) {
   const { id } = use(params);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [collection, setCollection] = useState<Collection | null>(null);
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -30,10 +30,10 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
 
   useEffect(() => {
     setMounted(true);
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       router.push('/auth/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
     if (!isAuthenticated || !id) return;

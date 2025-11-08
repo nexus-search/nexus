@@ -15,7 +15,7 @@ type MediaPageProps = {
 
 export default function MediaPage({ params }: MediaPageProps) {
   const { id } = use(params);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth();
   const router = useRouter();
   const [media, setMedia] = useState<MediaItem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -24,10 +24,10 @@ export default function MediaPage({ params }: MediaPageProps) {
   const [selectedCollection, setSelectedCollection] = useState<string>('');
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       router.push('/auth/login');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
     if (!isAuthenticated || !id) return;

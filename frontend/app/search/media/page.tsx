@@ -3,7 +3,7 @@ import Header from '@/components/Header';
 import SearchBar from '@/components/SearchBar';
 import MediaGrid from '@/components/MediaGrid';
 import MediaViewer from '@/components/MediaViewer';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { searchSimilar } from '@/lib/api';
 import { MediaItem } from '@/lib/types';
 
@@ -22,14 +22,19 @@ export default function SearchMediaPage() {
   const [status, setStatus] = useState<string>('');
   const [scope, setScope] = useState<string>('all');
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const itemsRef = useRef<MediaItem[]>([]);
+  const totalRef = useRef<number>(0);
+  const pageRef = useRef<number>(1);
+  const uploadedFileRef = useRef<File | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const handleSearch = async (file: File, limit: number = 20) => {
+  const handleSearch = useCallback(async (file: File, limit: number = 20) => {
     setLoading(true);
     setSearchComplete(false);
+    uploadedFileRef.current = file;
     setUploadedFile({
       url: URL.createObjectURL(file),
       name: file.name,
@@ -39,17 +44,26 @@ export default function SearchMediaPage() {
     
     try {
       const res = await searchSimilar(file, scope, limit, 0.5);
+      const newPage = Math.floor(limit / pageSize);
       if (limit === 20) {
         // First search
         setItems(res.items);
+        itemsRef.current = res.items;
         setPage(1);
+        pageRef.current = 1;
       } else {
         // Pagination - append new items
-        setItems(prev => [...prev, ...res.items]);
+        setItems(prev => {
+          const newItems = [...prev, ...res.items];
+          itemsRef.current = newItems;
+          return newItems;
+        });
+        setPage(newPage);
+        pageRef.current = newPage;
       }
       setQueryId(res.queryId);
-      setPage(Math.floor(limit / pageSize));
       setTotal(res.total || res.items.length);
+      totalRef.current = res.total || res.items.length;
       setSearchComplete(true);
     } catch (error: any) {
       console.error('Search failed:', error);
@@ -57,30 +71,41 @@ export default function SearchMediaPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [scope, pageSize]);
 
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    if (!uploadedFile?.file) return;
+    if (!uploadedFileRef.current) return;
+    if (loading) return;
+    
     const obs = new IntersectionObserver(async (entries) => {
       const entry = entries[0];
       if (!entry.isIntersecting) return;
       if (isFetchingMore) return;
-      const canLoadMore = items.length < total;
+      
+      const canLoadMore = itemsRef.current.length < totalRef.current;
       if (!canLoadMore) return;
+      
+      const file = uploadedFileRef.current;
+      if (!file) return;
+      
       setIsFetchingMore(true);
       try {
         // Increase limit to get more results
-        const nextLimit = (page + 1) * pageSize;
-        await handleSearch(uploadedFile.file, nextLimit);
+        const nextLimit = (pageRef.current + 1) * pageSize;
+        await handleSearch(file, nextLimit);
       } finally {
         setIsFetchingMore(false);
       }
-    }, { rootMargin: '200px' });
+    }, { 
+      rootMargin: '400px',
+      threshold: 0.1
+    });
+    
     obs.observe(el);
     return () => obs.disconnect();
-  }, [uploadedFile, items.length, total, page, pageSize, isFetchingMore]);
+  }, [loading, handleSearch, pageSize]);
 
   const isVideo = uploadedFile?.type?.includes('video');
 
@@ -257,7 +282,11 @@ export default function SearchMediaPage() {
               <MediaGrid items={items} onItemClick={setActive} />
               
               {/* Infinite Scroll Sentinel */}
-              <div ref={sentinelRef} className="h-10" />
+              {items.length < total && (
+                <div ref={sentinelRef} className="h-20 flex items-center justify-center">
+                  <div className="w-1 h-1" />
+                </div>
+              )}
               
               {/* Loading More Indicator */}
               {isFetchingMore && (
@@ -387,7 +416,14 @@ export default function SearchMediaPage() {
         <MediaViewer 
           mediaUrl={active.mediaUrl} 
           mediaType={active.mediaType} 
-          onClose={() => setActive(null)} 
+          onClose={() => setActive(null)}
+          items={items}
+          currentIndex={items.findIndex(item => item.id === active.id)}
+          onNavigate={(index) => {
+            if (items[index]) {
+              setActive(items[index]);
+            }
+          }}
         />
       )}
     </div>

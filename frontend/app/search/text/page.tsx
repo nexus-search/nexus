@@ -3,7 +3,7 @@ import Header from '@/components/Header';
 import SearchBar from '@/components/SearchBar';
 import MediaGrid from '@/components/MediaGrid';
 import MediaViewer from '@/components/MediaViewer';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { searchByText } from '@/lib/api';
 import { MediaItem } from '@/lib/types';
@@ -24,6 +24,11 @@ export default function SearchTextPage() {
   const [scope, setScope] = useState<string>('all');
   const [status, setStatus] = useState<string>('');
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const itemsRef = useRef<MediaItem[]>([]);
+  const totalRef = useRef<number>(0);
+  const pageRef = useRef<number>(1);
+  const searchQueryRef = useRef<string>('');
+  const isFetchingMoreRef = useRef<boolean>(false);
 
   useEffect(() => {
     setMounted(true);
@@ -31,56 +36,89 @@ export default function SearchTextPage() {
     const q = searchParams.get('q');
     if (q) {
       setSearchQuery(q);
+      searchQueryRef.current = q;
       handleSearchText(q, 1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSearchText = async (q: string, pageNum: number = 1) => {
-    setLoading(true);
-    setSearchComplete(false);
+  const handleSearchText = useCallback(async (q: string, pageNum: number = 1, isLoadMore: boolean = false) => {
+    if (pageNum === 1) {
+      setLoading(true);
+      setSearchComplete(false);
+    } else {
+      setIsFetchingMore(true);
+      isFetchingMoreRef.current = true;
+    }
     setSearchQuery(q);
+    searchQueryRef.current = q;
     
     try {
       const res = await searchByText(q, scope, pageNum, pageSize);
       if (pageNum === 1) {
         setItems(res.items);
+        itemsRef.current = res.items;
         setPage(1);
+        pageRef.current = 1;
+        setSearchComplete(true);
       } else {
-        setItems(prev => [...prev, ...res.items]);
+        setItems(prev => {
+          const newItems = [...prev, ...res.items];
+          itemsRef.current = newItems;
+          return newItems;
+        });
+        setPage(pageNum);
+        pageRef.current = pageNum;
       }
       setQueryId(res.queryId);
-      setPage(pageNum);
       setTotal(res.total || res.items.length);
-      setSearchComplete(true);
+      totalRef.current = res.total || res.items.length;
     } catch (error: any) {
       console.error('Search failed:', error);
       setStatus(error.message || 'Search failed');
     } finally {
-      setLoading(false);
+      if (pageNum === 1) {
+        setLoading(false);
+      } else {
+        setIsFetchingMore(false);
+        isFetchingMoreRef.current = false;
+      }
     }
-  };
+  }, [scope, pageSize]);
+  
+  const handleSearchTextRef = useRef(handleSearchText);
+  useEffect(() => {
+    handleSearchTextRef.current = handleSearchText;
+  }, [handleSearchText]);
 
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    if (!searchQuery) return;
+    if (!searchQueryRef.current) return;
+    if (loading) return;
+    if (!searchComplete) return; // Don't observe until initial search is complete
+    
     const obs = new IntersectionObserver(async (entries) => {
       const entry = entries[0];
       if (!entry.isIntersecting) return;
-      if (isFetchingMore) return;
-      const canLoadMore = items.length < total;
+      if (isFetchingMoreRef.current) return;
+      
+      const canLoadMore = itemsRef.current.length < totalRef.current;
       if (!canLoadMore) return;
-      setIsFetchingMore(true);
-      try {
-        const next = page + 1;
-        await handleSearchText(searchQuery, next);
-      } finally {
-        setIsFetchingMore(false);
-      }
-    }, { rootMargin: '200px' });
+      
+      // Set flag immediately to prevent multiple triggers
+      isFetchingMoreRef.current = true;
+      
+      // Use ref to get latest function
+      await handleSearchTextRef.current(searchQueryRef.current, pageRef.current + 1, true);
+    }, { 
+      rootMargin: '300px',
+      threshold: 0.01
+    });
+    
     obs.observe(el);
     return () => obs.disconnect();
-  }, [searchQuery, items.length, total, page, pageSize, isFetchingMore, scope]);
+  }, [loading, searchComplete]);
 
   // Example search suggestions
   const suggestions = [
@@ -281,18 +319,23 @@ export default function SearchTextPage() {
 
               <MediaGrid items={items} onItemClick={setActive} />
               
-              {/* Infinite Scroll Sentinel */}
-              <div ref={sentinelRef} className="h-10" />
+              {/* Infinite Scroll Sentinel - Only show when there's more to load and not currently loading */}
+              {items.length < total && !isFetchingMore && (
+                <div ref={sentinelRef} className="h-32 flex items-center justify-center">
+                  <div className="w-1 h-1" />
+                </div>
+              )}
               
               {/* Loading More Indicator */}
               {isFetchingMore && (
                 <div className="flex flex-col items-center justify-center py-16 animate-fadeInUp">
-                  <div className="relative w-16 h-16">
+                  <div className="relative w-16 h-16 mb-4">
                     <div className="absolute inset-0 rounded-full border-4 border-gray-800"></div>
                     <div className="absolute inset-0 rounded-full border-4 border-t-purple-500 border-r-pink-500 border-b-transparent border-l-transparent animate-spin"></div>
                     <div className="absolute inset-2 rounded-full border-4 border-t-transparent border-r-transparent border-b-fuchsia-500 border-l-purple-500 animate-spin animation-delay-1000" style={{ animationDirection: 'reverse' }}></div>
                   </div>
-                  <p className="text-gray-400 text-sm mt-6 font-medium">Finding more matches...</p>
+                  <p className="text-gray-300 text-base font-semibold mb-2">Finding more matches...</p>
+                  <p className="text-gray-500 text-sm">Loading {pageSize} more results</p>
                 </div>
               )}
 
@@ -412,7 +455,14 @@ export default function SearchTextPage() {
         <MediaViewer 
           mediaUrl={active.mediaUrl} 
           mediaType={active.mediaType} 
-          onClose={() => setActive(null)} 
+          onClose={() => setActive(null)}
+          items={items}
+          currentIndex={items.findIndex(item => item.id === active.id)}
+          onNavigate={(index) => {
+            if (items[index]) {
+              setActive(items[index]);
+            }
+          }}
         />
       )}
     </div>

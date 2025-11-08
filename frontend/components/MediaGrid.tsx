@@ -9,7 +9,6 @@ interface MediaGridProps {
 }
 
 const MediaGrid: React.FC<MediaGridProps> = ({ items = [], onItemClick }) => {
-  console.log('MediaGrid component rendered');
   if (!items.length) {
     return (
       <div className="bg-gray-700 p-6 rounded-lg mt-4 text-center text-gray-300">
@@ -18,7 +17,7 @@ const MediaGrid: React.FC<MediaGridProps> = ({ items = [], onItemClick }) => {
     );
   }
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 mt-4">
       {items.map((m) => (
         <MediaCard
           key={m.id}

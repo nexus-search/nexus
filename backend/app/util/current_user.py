@@ -19,3 +19,4 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         return user
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+

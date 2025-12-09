@@ -5,8 +5,10 @@ class CollectionRepository:
         await collection.insert()
         return collection
 
-    async def find_all(self):
-        return await Collection.find_all().to_list()
+    async def find_all(self, page: int = 1, limit: int = 10):
+        skip = (page - 1) * limit
+        return await Collection.find_all().skip(skip).limit(limit).to_list()
+
 
     async def find_by_id(self, id: str):
         return await Collection.get(id)

@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.routes import auth
+from app.routes import use
 from app.persistance.db import init_db
 
 @asynccontextmanager
@@ -14,10 +15,11 @@ async def lifespan(app: FastAPI):
     print("Server is shutting down...")
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="JWT Auth Example", lifespan=lifespan)
+    app = FastAPI(title="Nexus", lifespan=lifespan)
 
     # Include routers
-    app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+    app.include_router(auth.router)
+    app.include_router(use.router)
 
     return app
 

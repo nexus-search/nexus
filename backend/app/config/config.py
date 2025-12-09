@@ -1,0 +1,9 @@
+CLIP_VIT_BASE_PATCH32  :str = 'openai/clip-vit-base-patch32'
+CLIP_VIT_LARGE_PATCH14 :str = 'openai/clip-vit-large-patch14'
+
+DEFAULT_CLIP_MODEL = CLIP_VIT_BASE_PATCH32
+
+AVAILABLE_CLIP_MODELS = [
+    CLIP_VIT_BASE_PATCH32,
+    CLIP_VIT_LARGE_PATCH14
+]

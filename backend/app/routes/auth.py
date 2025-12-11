@@ -38,7 +38,7 @@ async def login(data: LoginRequest):
     # Transform to match frontend TokenResponse type
     return TokenResponse(
         accessToken=result["token"],
-        refreshToken=jwt_handler.encode_refresh_token({"user_id": result["user"]["id"]}),
+        refreshToken=jwt_handler.encode_refresh_token({"user_id": str(result["user"].id)}),
         tokenType="bearer",
         expiresIn=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60  # Convert to seconds
     )

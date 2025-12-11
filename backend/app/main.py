@@ -37,9 +37,20 @@ def create_app() -> FastAPI:
     )
 
     # CORS middleware
+    allowed_origins = [settings.FRONTEND_ORIGIN]
+
+    # Also allow requests from the API itself (for Swagger UI)
+    if settings.API_HOST == "0.0.0.0":
+        allowed_origins.extend([
+            "http://localhost:8000",
+            "http://127.0.0.1:8000"
+        ])
+    else:
+        allowed_origins.append(f"http://{settings.API_HOST}:{settings.API_PORT}")
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.FRONTEND_ORIGIN],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

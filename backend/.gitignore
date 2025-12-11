@@ -1,10 +1,13 @@
 .venv/
+venv/
 __pycache__/
 .pytest*
 *.pyc
 .env
 # Ignore temp uploads or generated files
 uploads/
+scripts/data/
+data/
 tmp/
 
 # Ignore models and uploads

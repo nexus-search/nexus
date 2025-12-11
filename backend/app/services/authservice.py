@@ -30,12 +30,20 @@ class AuthService:
         return user
 
     async def login(self, email: str, password: str):
+        from fastapi import HTTPException, status
+        
         user = await self.repo.find_by_email(email)
         if not user:
-            raise Exception("Invalid email or password")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
 
         if not self.hasher.verify(password, user.password_hash):
-            raise Exception("Invalid email or password")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
 
         token = self.jwt_handler.encode_token({"user_id": str(user.id)})
 

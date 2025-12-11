@@ -33,8 +33,6 @@ class ESClient:
         await self.es.index(index=self.index_name, id=image_id, document=doc)
         await self.es.indices.refresh(index=self.index_name)  # <--- important
 
-        
-
     async def search_similar(self, query_embedding: List[float], top_k: int = 10) -> List[str]:
         query = {
             "size": top_k,
@@ -53,3 +51,20 @@ class ESClient:
 
     async def delete_document(self, image_id: str):
         await self.es.delete(index=self.index_name, id=image_id)
+
+    #bulk indexing method
+    async def bulk_index_images(self, images: List[dict]):
+        actions = [
+            {
+                "_op_type": "index",
+                "_index": self.index_name,
+                "_id": image["image_id"],
+                "_source": {
+                    "image_id": image["image_id"],
+                    "embedding": image["embedding"]
+                }
+            }
+            for image in images
+        ]
+        await self.es.bulk(body=actions)
+        await self.es.indices.refresh(index=self.index_name)  # <--- important

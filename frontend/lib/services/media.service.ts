@@ -48,6 +48,24 @@ class MediaService {
   }
 
   /**
+   * List all public media with pagination (no auth required)
+   */
+  async listMedia(params: {
+    page?: number;
+    pageSize?: number;
+    visibility?: 'public' | 'private';
+  } = {}): Promise<PaginatedResponse<MediaItemResponse>> {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.pageSize) queryParams.append('page_size', params.pageSize.toString());
+    if (params.visibility) queryParams.append('visibility', params.visibility);
+
+    const endpoint = `/api/v1/media${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+
+    return get<PaginatedResponse<MediaItemResponse>>(endpoint, { requireAuth: false });
+  }
+
+  /**
    * List user's media with pagination
    */
   async getUserMedia(params: {

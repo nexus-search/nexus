@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: .
@@ -21,8 +19,12 @@ services:
       - ELASTICSEARCH_USER=elastic
       - ELASTICSEARCH_PASSWORD=dm_4Moz_XGVWIRHG910C
       - ELASTICSEARCH_INDEX=media_embeddings
+      - CLOUDINARY_CLOUD_NAME=dlllfzyzo
+      - CLOUDINARY_API_KEY=987121145237775
+      - CLOUDINARY_API_SECRET=BT0TdlqmiJ6J4_CclgIy4Uqi2vg
     volumes:
       - ../../uploads:/app/uploads
+      - ./scripts/data:/app/scripts/data
     depends_on:
       - mongodb
       - elasticsearch

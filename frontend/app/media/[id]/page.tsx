@@ -2,12 +2,12 @@
 import Header from '@/components/Header';
 import MediaViewer from '@/components/MediaViewer';
 import { useState, useEffect, use } from 'react';
-import { getMedia, deleteMedia, getCollections, addMediaToCollection } from '@/lib/api';
-import { MediaItem, Collection } from '@/lib/types';
+import { mediaService } from '@/lib/services/media.service';
+import { collectionService } from '@/lib/services/collection.service';
+import type { MediaItemResponse, CollectionResponse } from '@/lib/types/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getMediaFile } from '@/lib/api';
 
 type MediaPageProps = {
   params: Promise<{ id: string }>;
@@ -17,9 +17,9 @@ export default function MediaPage({ params }: MediaPageProps) {
   const { id } = use(params);
   const { isAuthenticated, user, isLoading } = useAuth();
   const router = useRouter();
-  const [media, setMedia] = useState<MediaItem | null>(null);
+  const [media, setMedia] = useState<MediaItemResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const [collections, setCollections] = useState<CollectionResponse[]>([]);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<string>('');
 
@@ -38,7 +38,7 @@ export default function MediaPage({ params }: MediaPageProps) {
   const loadMedia = async () => {
     try {
       setLoading(true);
-      const mediaData = await getMedia(id);
+      const mediaData = await mediaService.getById(id);
       setMedia(mediaData);
     } catch (error: any) {
       console.error('Failed to load media:', error);
@@ -52,8 +52,8 @@ export default function MediaPage({ params }: MediaPageProps) {
 
   const loadCollections = async () => {
     try {
-      const res = await getCollections();
-      setCollections(res.collections);
+      const collections = await collectionService.getAll();
+      setCollections(collections);
     } catch (error: any) {
       console.error('Failed to load collections:', error);
     }
@@ -62,7 +62,7 @@ export default function MediaPage({ params }: MediaPageProps) {
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this media? This action cannot be undone.')) return;
     try {
-      await deleteMedia(id);
+      await mediaService.deleteMedia(id);
       router.push('/library');
     } catch (error: any) {
       console.error('Failed to delete media:', error);
@@ -76,7 +76,7 @@ export default function MediaPage({ params }: MediaPageProps) {
       return;
     }
     try {
-      await addMediaToCollection(selectedCollection, [id]);
+      await collectionService.addMedia(selectedCollection, [id]);
       setShowAddToCollection(false);
       setSelectedCollection('');
       alert('Media added to collection successfully!');
@@ -145,7 +145,7 @@ export default function MediaPage({ params }: MediaPageProps) {
     );
   }
 
-  const isOwner = user?.userId === media.ownerId;
+  const isOwner = user?.id === media.ownerId;
 
   return (
     <div className="relative bg-gray-950 min-h-screen flex flex-col">
@@ -240,7 +240,7 @@ export default function MediaPage({ params }: MediaPageProps) {
                     Add to Collection
                   </button>
                   <a
-                    href={getMediaFile(id)}
+                    href={mediaService.getFileUrl(id)}
                     download={media.filename}
                     className="block w-full px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-all font-medium text-center"
                   >
@@ -289,7 +289,7 @@ export default function MediaPage({ params }: MediaPageProps) {
                   >
                     <option value="">Choose a collection...</option>
                     {collections.map((collection) => (
-                      <option key={collection.id || collection.collectionId} value={collection.id || collection.collectionId}>
+                      <option key={collection.id} value={collection.id}>
                         {collection.name}
                       </option>
                     ))}

@@ -3,12 +3,13 @@ import Header from '@/components/Header';
 import MediaGrid from '@/components/MediaGrid';
 import MediaViewer from '@/components/MediaViewer';
 import { useState, useEffect } from 'react';
-import { getCollection, addMediaToCollection, removeMediaFromCollection, searchByText } from '@/lib/api';
-import { Collection, MediaItem } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { use } from 'react';
 import Link from 'next/link';
+import { collectionService } from '@/lib/services/collection.service';
+import { searchService } from '@/lib/services';
+import { CollectionResponse, MediaItemResponse } from '@/lib/types/api';
 
 type CollectionPageProps = {
   params: Promise<{ id: string }>;
@@ -18,14 +19,14 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
   const { id } = use(params);
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const [collection, setCollection] = useState<Collection | null>(null);
-  const [items, setItems] = useState<MediaItem[]>([]);
+  const [collection, setCollection] = useState<CollectionResponse | null>(null);
+  const [items, setItems] = useState<MediaItemResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [active, setActive] = useState<MediaItem | null>(null);
+  const [active, setActive] = useState<MediaItemResponse | null>(null);
   const [mounted, setMounted] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<MediaItem[]>([]);
+  const [searchResults, setSearchResults] = useState<MediaItemResponse[]>([]);
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
@@ -43,14 +44,12 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
   const loadCollection = async () => {
     try {
       setLoading(true);
-      const res = await getCollection(id);
-      const normalized = {
-        ...res,
-        id: res.id || res.collectionId || id,
-      };
-      setCollection(normalized);
-      const searchRes = await searchByText('', `collection:${id}`, 1, 100);
-      setItems(searchRes.items);
+      const res = await collectionService.getById(id);
+      setCollection(res);
+
+      // Load media in this collection
+      const mediaRes = await collectionService.getMedia(id, { pageSize: 100 });
+      setItems(mediaRes.items);
     } catch (error: any) {
       console.error('Failed to load collection:', error);
       if (error.message?.includes('404') || error.message?.includes('not found')) {
@@ -68,7 +67,12 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
     }
     setSearching(true);
     try {
-      const res = await searchByText(query, 'my_images', 1, 20);
+      const res = await searchService.searchByText({
+        query,
+        scope: 'library',
+        page: 1,
+        pageSize: 20,
+      });
       setSearchResults(res.items);
     } catch (error: any) {
       console.error('Search failed:', error);
@@ -79,7 +83,7 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
 
   const handleAddMedia = async (mediaId: string) => {
     try {
-      await addMediaToCollection(id, [mediaId]);
+      await collectionService.addMedia(id, [mediaId]);
       await loadCollection();
       setShowAddModal(false);
       setSearchQuery('');
@@ -93,7 +97,7 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
   const handleRemoveMedia = async (mediaId: string) => {
     if (!confirm('Remove this media from the collection?')) return;
     try {
-      await removeMediaFromCollection(id, mediaId);
+      await collectionService.removeMedia(id, mediaId);
       setItems(prev => prev.filter(item => item.id !== mediaId));
     } catch (error: any) {
       console.error('Failed to remove media:', error);

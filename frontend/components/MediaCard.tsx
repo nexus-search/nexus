@@ -2,7 +2,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getAccessToken } from '@/lib/auth';
 
 interface MediaCardProps {
   mediaUrl: string;
@@ -17,40 +16,9 @@ const MediaCard: React.FC<MediaCardProps> = ({ mediaUrl, thumbnailUrl, similarit
   const [imageSrc, setImageSrc] = useState<string>('');
   const [imageError, setImageError] = useState(false);
   
-  // Convert backend URL to Next.js API proxy URL with auth token
+  // Use thumbnail or media URL directly (already from Cloudinary or proper source)
   useEffect(() => {
-    const getImageUrl = (url: string) => {
-      if (!url) return '';
-      
-      // Extract media ID from URL
-      const match = url.match(/\/api\/v1\/media\/([^\/]+)\/file/);
-      if (match) {
-        const mediaId = match[1];
-        const token = getAccessToken();
-        // Use proxy route with token as query param
-        if (token) {
-          return `/api/media/${mediaId}?token=${encodeURIComponent(token)}`;
-        }
-        return `/api/media/${mediaId}`;
-      }
-      
-      // If already absolute URL, extract ID
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        const match = url.match(/\/api\/v1\/media\/([^\/]+)\/file/);
-        if (match) {
-          const mediaId = match[1];
-          const token = getAccessToken();
-          if (token) {
-            return `/api/media/${mediaId}?token=${encodeURIComponent(token)}`;
-          }
-          return `/api/media/${mediaId}`;
-        }
-      }
-      
-      return url;
-    };
-    
-    setImageSrc(getImageUrl(thumbnailUrl || mediaUrl));
+    setImageSrc(thumbnailUrl || mediaUrl);
   }, [thumbnailUrl, mediaUrl]);
   
   return (

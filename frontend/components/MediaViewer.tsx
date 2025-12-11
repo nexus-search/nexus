@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getAccessToken } from '@/lib/auth';
-import { MediaItem } from '@/lib/types';
+import type { MediaItemResponse } from '@/lib/types/api';
 
 interface MediaViewerProps {
   mediaUrl: string;
   mediaType: 'image' | 'video';
   onClose: () => void;
-  items?: MediaItem[];
+  items?: MediaItemResponse[];
   currentIndex?: number;
   onNavigate?: (index: number) => void;
 }
@@ -21,45 +20,8 @@ const MediaViewer: React.FC<MediaViewerProps> = ({
   currentIndex = -1,
   onNavigate 
 }) => {
-  const [proxyUrl, setProxyUrl] = useState<string>('');
   const canNavigate = items.length > 1 && currentIndex >= 0 && onNavigate;
   const currentIdx = currentIndex >= 0 ? currentIndex : items.findIndex(item => item.mediaUrl === mediaUrl);
-  
-  // Convert backend URL to Next.js API proxy URL with auth token
-  useEffect(() => {
-    const getMediaUrl = (url: string) => {
-      if (!url) return '';
-      
-      // Extract media ID from URL
-      const match = url.match(/\/api\/v1\/media\/([^\/]+)\/file/);
-      if (match) {
-        const mediaId = match[1];
-        const token = getAccessToken();
-        // Use proxy route with token as query param
-        if (token) {
-          return `/api/media/${mediaId}?token=${encodeURIComponent(token)}`;
-        }
-        return `/api/media/${mediaId}`;
-      }
-      
-      // If already absolute URL, extract ID
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        const match = url.match(/\/api\/v1\/media\/([^\/]+)\/file/);
-        if (match) {
-          const mediaId = match[1];
-          const token = getAccessToken();
-          if (token) {
-            return `/api/media/${mediaId}?token=${encodeURIComponent(token)}`;
-          }
-          return `/api/media/${mediaId}`;
-        }
-      }
-      
-      return url;
-    };
-    
-    setProxyUrl(getMediaUrl(mediaUrl));
-  }, [mediaUrl]);
 
   // Keyboard controls
   useEffect(() => {
@@ -93,7 +55,7 @@ const MediaViewer: React.FC<MediaViewerProps> = ({
     }
   }, [canNavigate, currentIdx, items.length, onNavigate]);
   
-  const absoluteUrl = proxyUrl || mediaUrl;
+  const absoluteUrl = mediaUrl;
   
   return (
     <div 

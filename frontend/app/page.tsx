@@ -3,17 +3,17 @@ import Header from '@/components/Header';
 import MediaGrid from '@/components/MediaGrid';
 import SearchBar from '@/components/SearchBar';
 import { useEffect, useState } from 'react';
-import { searchByText, searchSimilar } from '@/lib/api';
-import { MediaItem } from '@/lib/types';
+import { searchService } from '@/lib/services/search.service';
+import type { MediaItemResponse } from '@/lib/types/api';
 import { useRouter } from 'next/navigation';
 import MediaViewer from '@/components/MediaViewer';
 
 export default function Home() {
   const router = useRouter();
-  const [items, setItems] = useState<MediaItem[]>([]);
+  const [items, setItems] = useState<MediaItemResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searching, setSearching] = useState<boolean>(false);
-  const [active, setActive] = useState<MediaItem | null>(null);
+  const [active, setActive] = useState<MediaItemResponse | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

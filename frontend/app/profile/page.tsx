@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getUserMedia, getCollections } from '@/lib/api';
+import { mediaService } from '@/lib/services/media.service';
+import { collectionService } from '@/lib/services/collection.service';
 
 export default function ProfilePage() {
   const { isAuthenticated, user, isLoading } = useAuth();
@@ -34,13 +35,13 @@ export default function ProfilePage() {
   const loadStats = async () => {
     try {
       setLoading(true);
-      const [mediaRes, collectionsRes] = await Promise.all([
-        getUserMedia(1, 1).catch(() => ({ total: 0 })),
-        getCollections().catch(() => ({ collections: [] })),
+      const [mediaRes, collections] = await Promise.all([
+        mediaService.listUserMedia(1, 1).catch(() => ({ total: 0, items: [], page: 1, page_size: 1, has_more: false })),
+        collectionService.getAll().catch(() => []),
       ]);
       setStats({
         totalMedia: mediaRes.total || 0,
-        totalCollections: collectionsRes.collections?.length || 0,
+        totalCollections: collections.length || 0,
         storageUsed: 0,
         storageQuota: 10 * 1024 * 1024 * 1024,
       });

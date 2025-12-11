@@ -3,7 +3,7 @@ import Header from '@/components/Header';
 import UploadZone from '@/components/UploadZone';
 import ProgressBar from '@/components/ProgressBar';
 import { useState, useEffect } from 'react';
-import { uploadMedia } from '@/lib/api';
+import { mediaService } from '@/lib/services/media.service';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -39,11 +39,16 @@ export default function UploadPage() {
     setStatus('Uploading...');
     setProgress(10);
     setUploadedFiles([]);
-    
+
     try {
       const uploaded = [];
       for (let i = 0; i < files.length; i++) {
-        const result = await uploadMedia(files[i], visibility, tags);
+        const result = await mediaService.upload({
+          file: files[i],
+          visibility,
+          tags,
+          title: files[i].name,
+        });
         uploaded.push(result);
         setUploadedFiles([...uploaded]);
         setProgress(Math.min(90, Math.round(((i + 1) / files.length) * 90)));
@@ -51,7 +56,7 @@ export default function UploadPage() {
       setProgress(100);
       setStatus(`Upload complete! ${uploaded.length} file(s) uploaded successfully.`);
       setTimeout(() => {
-        router.push('/');
+        router.push('/library');
       }, 2000);
     } catch (e: any) {
       console.error(e);

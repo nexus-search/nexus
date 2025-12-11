@@ -1,11 +1,11 @@
 
 import React from 'react';
 import MediaCard from './MediaCard';
-import { MediaItem } from '@/lib/types';
+import type { MediaItemResponse } from '@/lib/types/api';
 
 interface MediaGridProps {
-  items?: MediaItem[];
-  onItemClick?: (item: MediaItem) => void;
+  items?: MediaItemResponse[];
+  onItemClick?: (item: MediaItemResponse) => void;
 }
 
 const MediaGrid: React.FC<MediaGridProps> = ({ items = [], onItemClick }) => {

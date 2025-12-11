@@ -3,8 +3,8 @@ import Header from '@/components/Header';
 import MediaGrid from '@/components/MediaGrid';
 import MediaViewer from '@/components/MediaViewer';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getUserMedia, deleteMedia } from '@/lib/api';
-import { MediaItem } from '@/lib/types';
+import { mediaService } from '@/lib/services/media.service';
+import type { MediaItemResponse } from '@/lib/types/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -12,9 +12,9 @@ import Link from 'next/link';
 export default function LibraryPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const [items, setItems] = useState<MediaItem[]>([]);
+  const [items, setItems] = useState<MediaItemResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [active, setActive] = useState<MediaItem | null>(null);
+  const [active, setActive] = useState<MediaItemResponse | null>(null);
   const [page, setPage] = useState<number>(1);
   const [total, setTotal] = useState<number>(0);
   const [isFetchingMore, setIsFetchingMore] = useState<boolean>(false);
@@ -22,7 +22,7 @@ export default function LibraryPage() {
   const [filter, setFilter] = useState<'all' | 'image' | 'video'>('all');
   const pageSize = 20;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const itemsRef = useRef<MediaItem[]>([]);
+  const itemsRef = useRef<MediaItemResponse[]>([]);
   const totalRef = useRef<number>(0);
   const pageRef = useRef<number>(1);
 
@@ -40,7 +40,7 @@ export default function LibraryPage() {
       setIsFetchingMore(true);
     }
     try {
-      const res = await getUserMedia(pageNum, pageSize);
+      const res = await mediaService.listUserMedia(pageNum, pageSize);
       if (pageNum === 1) {
         setItems(res.items);
         itemsRef.current = res.items;
@@ -101,7 +101,7 @@ export default function LibraryPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this media?')) return;
     try {
-      await deleteMedia(id);
+      await mediaService.deleteMedia(id);
       setItems(prev => prev.filter(item => item.id !== id));
       setTotal(prev => prev - 1);
     } catch (error: any) {

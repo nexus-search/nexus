@@ -1,8 +1,8 @@
 "use client";
 import Header from '@/components/Header';
 import { useState, useEffect } from 'react';
-import { getCollections, createCollection, updateCollection, deleteCollection } from '@/lib/api';
-import { Collection } from '@/lib/types';
+import { collectionService } from '@/lib/services/collection.service';
+import type { CollectionResponse } from '@/lib/types/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -10,7 +10,7 @@ import Link from 'next/link';
 export default function CollectionsPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const [collections, setCollections] = useState<Collection[]>([]);
+  const [collections, setCollections] = useState<CollectionResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [mounted, setMounted] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -32,12 +32,8 @@ export default function CollectionsPage() {
   const loadCollections = async () => {
     try {
       setLoading(true);
-      const res = await getCollections();
-      const normalized = res.collections.map(c => ({
-        ...c,
-        id: c.id || c.collectionId || '',
-      }));
-      setCollections(normalized);
+      const collections = await collectionService.getAll();
+      setCollections(collections);
     } catch (error: any) {
       console.error('Failed to load collections:', error);
     } finally {
@@ -51,16 +47,12 @@ export default function CollectionsPage() {
       return;
     }
     try {
-      const newCollection = await createCollection(
-        formData.name,
-        formData.description || undefined,
-        formData.isPublic
-      );
-      const normalized = {
-        ...newCollection,
-        id: newCollection.id || newCollection.collectionId || '',
-      };
-      setCollections(prev => [...prev, normalized]);
+      const newCollection = await collectionService.create({
+        name: formData.name,
+        description: formData.description || undefined,
+        isPublic: formData.isPublic,
+      });
+      setCollections(prev => [...prev, newCollection]);
       setShowCreateModal(false);
       setFormData({ name: '', description: '', isPublic: false });
     } catch (error: any) {
@@ -75,17 +67,12 @@ export default function CollectionsPage() {
       return;
     }
     try {
-      const updated = await updateCollection(
-        id,
-        formData.name,
-        formData.description || undefined,
-        formData.isPublic
-      );
-      const normalized = {
-        ...updated,
-        id: updated.id || updated.collectionId || id,
-      };
-      setCollections(prev => prev.map(c => (c.id === id || c.collectionId === id) ? normalized : c));
+      const updated = await collectionService.update(id, {
+        name: formData.name,
+        description: formData.description || undefined,
+        isPublic: formData.isPublic,
+      });
+      setCollections(prev => prev.map(c => c.id === id ? updated : c));
       setEditingId(null);
       setFormData({ name: '', description: '', isPublic: false });
     } catch (error: any) {
@@ -97,7 +84,7 @@ export default function CollectionsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this collection? This will not delete the media files.')) return;
     try {
-      await deleteCollection(id);
+      await collectionService.delete(id);
       setCollections(prev => prev.filter(c => c.id !== id));
     } catch (error: any) {
       console.error('Failed to delete collection:', error);
@@ -105,7 +92,7 @@ export default function CollectionsPage() {
     }
   };
 
-  const startEdit = (collection: Collection) => {
+  const startEdit = (collection: CollectionResponse) => {
     setEditingId(collection.id);
     setFormData({
       name: collection.name,
@@ -179,7 +166,7 @@ export default function CollectionsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {collections.map((collection, index) => (
                 <div
-                  key={collection.id || collection.collectionId || `collection-${collection.name}`}
+                  key={collection.id || collection.id || `collection-${collection.name}`}
                   className="relative group bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-gray-800 hover:border-purple-500/50 transition-all duration-300 overflow-hidden"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >

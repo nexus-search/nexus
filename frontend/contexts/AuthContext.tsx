@@ -1,80 +1,58 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, TokenResponse, UserLogin, UserRegister } from '@/lib/types';
-import { getAccessToken, getUser, setAuth, clearAuth, isAuthenticated } from '@/lib/auth';
-import * as api from '@/lib/api';
+import { authService } from '@/lib/services/auth.service';
+import type { LoginRequest, RegisterRequest, UserResponse } from '@/lib/types/api';
 
 interface AuthContextType {
-  user: User | null;
+  user: UserResponse | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: UserLogin) => Promise<void>;
-  register: (data: UserRegister) => Promise<void>;
-  logout: () => void;
-  refreshToken: () => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Load user from localStorage on mount
-    const storedUser = getUser();
-    if (storedUser && isAuthenticated()) {
+    const storedUser = authService.getStoredUser();
+    if (storedUser && authService.isAuthenticated()) {
       setUser(storedUser);
     }
     setIsLoading(false);
   }, []);
 
-  const login = async (credentials: UserLogin) => {
-    const tokens = await api.login(credentials);
-    // Extract user info from token (JWT payload) - temporary solution
-    // In production, you'd decode the JWT or call a /me endpoint
-    try {
-      const payload = JSON.parse(atob(tokens.accessToken.split('.')[1]));
-      const userData: User = {
-        userId: payload.user_id || '',
-        email: payload.email || credentials.email,
-        username: payload.username || credentials.email.split('@')[0],
-      };
-      setAuth(tokens, userData);
-      setUser(userData);
-    } catch (error) {
-      // Fallback if token decode fails
-      const userData: User = {
-        userId: '',
-        email: credentials.email,
-        username: credentials.email.split('@')[0],
-      };
-      setAuth(tokens, userData);
-      setUser(userData);
-    }
+  const login = async (credentials: LoginRequest) => {
+    await authService.login(credentials);
+    const storedUser = authService.getStoredUser();
+    setUser(storedUser);
   };
 
-  const register = async (data: UserRegister) => {
-    await api.register(data);
+  const register = async (data: RegisterRequest) => {
+    await authService.register(data);
     // Auto-login after registration
     await login({ email: data.email, password: data.password });
   };
 
-  const logout = () => {
-    clearAuth();
+  const logout = async () => {
+    await authService.logout();
     setUser(null);
-    // Optionally call logout endpoint
-    api.logout().catch(console.error);
   };
 
-  const refreshToken = async () => {
+  const refreshUser = async () => {
     try {
-      const tokens = await api.refreshToken();
-      setAuth(tokens, user || undefined);
+      const userData = await authService.getCurrentUser();
+      setUser(userData);
     } catch (error) {
-      // Refresh failed, logout user
-      logout();
+      // Failed to refresh user, logout
+      await logout();
       throw error;
     }
   };
@@ -83,12 +61,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user && isAuthenticated(),
+        isAuthenticated: !!user && authService.isAuthenticated(),
         isLoading,
         login,
         register,
         logout,
-        refreshToken,
+        refreshUser,
       }}
     >
       {children}

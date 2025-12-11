@@ -67,6 +67,21 @@ async def search_image(file: UploadFile = File(...), top_k: int = 10, current_us
     results = await search_service.search_by_image(image_data, top_k)
     return {"results": results}
 
+@router.get("/search/similar/{media_id}")
+async def find_similar(media_id: str, top_k: int = 10, current_user=Depends(get_current_user)):
+    """
+    Find media items similar to a given media item using its embedding.
+
+    Args:
+        media_id: The ID of the media item to find similar items for
+        top_k: Number of similar items to return (default: 10)
+
+    Returns:
+        Dictionary with results array containing similar media items
+    """
+    results = await search_service.search_by_media_id(media_id, top_k)
+    return {"results": results}
+
 @router.get("/images")
 async def get_all_images(current_user=Depends(get_current_user)):
     images = await image_service.get_all_images()

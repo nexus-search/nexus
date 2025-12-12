@@ -26,8 +26,9 @@ services:
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
       - DEFAULT_CLIP_MODEL=${DEFAULT_CLIP_MODEL:-openai/clip-vit-base-patch32}
     volumes:
+      - ./app:/app/app
       - ../../uploads:/app/uploads
-      - ./scripts/data:/app/scripts/data
+      - ./scripts:/app/scripts
     depends_on:
       - mongodb
       - elasticsearch

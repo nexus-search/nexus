@@ -54,7 +54,7 @@ class CloudinaryService:
                 'public_id': 'nexus/user123/abc123',
                 'url': 'https://res.cloudinary.com/...',
                 'secure_url': 'https://res.cloudinary.com/...',
-                'thumbnail_url': 'https://res.cloudinary.com/.../c_fill,h_300,w_300/...',
+                'thumbnail_url': 'https://res.cloudinary.com/.../w_300,c_scale/...',
                 'width': 1920,
                 'height': 1080,
                 'format': 'jpg',
@@ -86,10 +86,10 @@ class CloudinaryService:
         # Upload to Cloudinary
         result = cloudinary.uploader.upload(file_path, **upload_options)
 
-        # Generate thumbnail URL (300x300 for cards)
+        # Generate thumbnail URL (width: 300px, height: auto to preserve aspect ratio)
         thumbnail_url = cloudinary.CloudinaryImage(result['public_id']).build_url(
             transformation=[
-                {'width': 300, 'height': 300, 'crop': 'fill', 'gravity': 'auto'},
+                {'width': 300, 'crop': 'scale'},
                 {'quality': 'auto', 'fetch_format': 'auto'}
             ]
         )

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { PaginatedResponse } from '@/lib/types/api';
 
 interface UseInfiniteScrollOptions {
@@ -18,24 +18,39 @@ export function useInfiniteScroll<T>(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [initialLoad, setInitialLoad] = useState(true);
+  const hasLoadedRef = useRef(false);
+  const isLoadingRef = useRef(false);
 
   const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return;
+    // Prevent concurrent calls
+    if (loading || !hasMore || isLoadingRef.current) {
+      console.log('loadMore blocked:', { loading, hasMore, isLoading: isLoadingRef.current });
+      return;
+    }
 
+    console.log('loadMore called, fetching page:', page);
+    isLoadingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
       const response = await fetchFn(page, pageSize);
 
-      setItems(prev => [...prev, ...response.items]);
+      setItems(prev => {
+        // Filter out any duplicates based on id
+        const existingIds = new Set(prev.map((item: any) => item.id));
+        const newItems = response.items.filter((item: any) => !existingIds.has(item.id));
+        return [...prev, ...newItems];
+      });
       setHasMore(response.has_more);
       setPage(prev => prev + 1);
+      hasLoadedRef.current = true;
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to load more items'));
       console.error('Failed to load more:', err);
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
       setInitialLoad(false);
     }
   }, [fetchFn, page, pageSize, loading, hasMore]);
@@ -47,14 +62,17 @@ export function useInfiniteScroll<T>(
     setLoading(false);
     setError(null);
     setInitialLoad(true);
+    hasLoadedRef.current = false;
+    isLoadingRef.current = false;
   }, [initialPage]);
 
-  // Load initial data
+  // Load initial data only once on mount or after reset
   useEffect(() => {
-    if (initialLoad && items.length === 0) {
+    if (initialLoad && items.length === 0 && !loading && !hasLoadedRef.current) {
       loadMore();
     }
-  }, [initialLoad, items.length, loadMore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLoad, items.length]);
 
   return {
     items,

@@ -27,8 +27,10 @@ class Settings:
     ELASTICSEARCH_PASSWORD: str = os.getenv("ELASTICSEARCH_PASSWORD", "changeme")
 
     # AI Model Configuration - CLIP Models
-    CLIP_VIT_BASE_PATCH32: str = 'openai/clip-vit-base-patch32'
-    CLIP_VIT_LARGE_PATCH14: str = 'openai/clip-vit-large-patch14'
+    # CLIP_VIT_BASE_PATCH32: str = 'openai/clip-vit-base-patch32'
+    # CLIP_VIT_LARGE_PATCH14: str = 'openai/clip-vit-large-patch14'
+    # CLIP_VIT_B32_LAION: str = 'laion/CLIP-ViT-B-32-laion2B-s34B-b79K'
+    # CLIP_VIT_B16_LAION: str = 'laion/CLIP-ViT-B-16-laion400m'
 
     DEFAULT_CLIP_MODEL: str = os.getenv(
         "DEFAULT_CLIP_MODEL",
@@ -37,7 +39,9 @@ class Settings:
 
     AVAILABLE_CLIP_MODELS: list = [
         'openai/clip-vit-base-patch32',
-        'openai/clip-vit-large-patch14'
+        'openai/clip-vit-large-patch14',
+        'laion/CLIP-ViT-B-32-laion2B-s34B-b79K',
+        'laion/CLIP-ViT-B-16-laion400m'
     ]
 
     MODEL_DEVICE: str = os.getenv("MODEL_DEVICE", "cpu")

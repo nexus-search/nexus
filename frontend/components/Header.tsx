@@ -32,9 +32,7 @@ const Header = () => {
         <div className="flex items-center justify-between gap-2 h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className="w-10 h-10 rounded-full bg-[#e60023] flex items-center justify-center">
-              <span className="text-2xl font-bold text-white" style={{ fontFamily: 'Georgia, serif' }}>𝓝</span>
-            </div>
+            <img src="/logo.svg" alt="Nexus" className="w-10 h-10" />
             <span className="text-xl font-bold text-[#e60023] hidden sm:block">Nexus</span>
           </Link>
 

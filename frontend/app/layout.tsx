@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Nexus Search",
   description: "Multimedia search engine",
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

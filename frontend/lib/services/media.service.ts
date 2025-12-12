@@ -58,9 +58,8 @@ class MediaService {
     const queryParams = new URLSearchParams();
     if (params.page) queryParams.append('page', params.page.toString());
     if (params.pageSize) queryParams.append('page_size', params.pageSize.toString());
-    if (params.visibility) queryParams.append('visibility', params.visibility);
-
-    const endpoint = `/api/v1/media${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    // Public feed endpoint (no auth)
+    const endpoint = `/api/v1/media/public${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
 
     return get<PaginatedResponse<MediaItemResponse>>(endpoint, { requireAuth: false });
   }

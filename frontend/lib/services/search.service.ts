@@ -39,6 +39,8 @@ class SearchService {
     if (request.scope) params.append('scope', request.scope);
     if (request.collectionId) params.append('collection_id', request.collectionId);
     if (request.topK) params.append('top_k', request.topK.toString());
+    if (request.page) params.append('page', request.page.toString());
+    if (request.pageSize) params.append('page_size', request.pageSize.toString());
 
     const endpoint = `/api/v1/use/search/image${params.toString() ? '?' + params.toString() : ''}`;
 
@@ -48,9 +50,10 @@ class SearchService {
   /**
    * Find similar media to a given media item
    */
-  async findSimilar(mediaId: string, topK: number = 10): Promise<SearchResponse> {
+  async findSimilar(mediaId: string, topK: number = 10, page: number = 1, pageSize: number = 20): Promise<SearchResponse> {
     const params = new URLSearchParams();
-    if (topK) params.append('top_k', topK.toString());
+    params.append('page', page.toString());
+    params.append('page_size', pageSize.toString());
 
     const endpoint = `/api/v1/use/search/similar/${mediaId}${params.toString() ? '?' + params.toString() : ''}`;
 

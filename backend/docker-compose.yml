@@ -30,22 +30,21 @@ services:
       - ../../uploads:/app/uploads
       - ./scripts:/app/scripts
     depends_on:
-      - mongodb
       - elasticsearch
     networks:
       - nexus-network
 
-  mongodb:
-    image: mongo:latest
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-admin}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-changeme}
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - nexus-network
+  # mongodb:
+  #   image: mongo:latest
+  #   environment:
+  #     - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-admin}
+  #     - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-changeme}
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongodb_data:/data/db
+  #   networks:
+  #     - nexus-network
 
   elasticsearch:
     image: elasticsearch:9.2.0

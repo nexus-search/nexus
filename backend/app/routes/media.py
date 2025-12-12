@@ -255,36 +255,29 @@ async def list_user_media(
         PaginatedResponse with user's media items
     """
     try:
-        # Get all images for the user
-        # Note: This is a simplified implementation. In production, you'd want to:
-        # 1. Add owner_id field to Image model
-        # 2. Create a proper query with pagination
-        # 3. Use MongoDB aggregation for better performance
+        # Efficiently query user images from database
+        user_images = await image_service.repo.find_by_owner(
+            owner_id=str(current_user.id),
+            page=page,
+            limit=page_size,
+            visibility=visibility
+        )
 
-        all_images = await image_service.get_all_images()
-
-        # Filter by owner and visibility
-        user_images = [
-            img for img in all_images
-            if getattr(img, 'owner_id', '') == str(current_user.id) and
-            (visibility is None or getattr(img, 'visibility', 'private') == visibility)
-        ]
-
-        # Calculate pagination
-        total = len(user_images)
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        page_images = user_images[start_idx:end_idx]
+        # Get total count
+        total = await image_service.repo.count_by_owner(
+            owner_id=str(current_user.id),
+            visibility=visibility
+        )
 
         # Convert to response models
-        items = [_image_to_media_response(img) for img in page_images]
+        items = [_image_to_media_response(img) for img in user_images]
 
         return PaginatedResponse(
             items=items,
             total=total,
             page=page,
             page_size=page_size,
-            has_more=end_idx < total
+            has_more=page * page_size < total
         )
 
     except Exception as e:

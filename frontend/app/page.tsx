@@ -1,58 +1,79 @@
 "use client";
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Header from '@/components/Header';
 import MasonryGrid from '@/components/MasonryGrid';
 import MediaViewer from '@/components/MediaViewer';
+import SaveToCollectionModal from '@/components/SaveToCollectionModal';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { mediaService } from '@/lib/services/media.service';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 import type { MediaItemResponse } from '@/lib/types/api';
 
 export default function Home() {
   const [selectedMedia, setSelectedMedia] = useState<MediaItemResponse | null>(null);
+  const [saveModalMedia, setSaveModalMedia] = useState<MediaItemResponse | null>(null);
+  const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
 
   // Fetch function for infinite scroll
   const fetchMedia = useCallback(async (page: number, pageSize: number) => {
-    return await mediaService.listMedia({ page, pageSize, visibility: 'public' });
+    return await mediaService.listMedia({ page, pageSize });
   }, []);
 
   // Use infinite scroll hook
-  const { items, loading, hasMore, loadMore, isInitialLoad } = useInfiniteScroll(
+  const { items, loading, hasMore, loadMore, isInitialLoad, reset } = useInfiniteScroll(
     fetchMedia,
-    { pageSize: 20 }
+    { pageSize: 30 }
   );
 
+  // Reset items when auth state changes (login/logout)
+  // Use a ref to track previous auth state to avoid unnecessary resets
+  const prevAuthRef = useRef(isAuthenticated);
+
+  useEffect(() => {
+    // Only reset if auth state actually changed (not on initial mount)
+    if (prevAuthRef.current !== isAuthenticated) {
+      console.log('Auth state changed, resetting feed');
+      reset();
+      prevAuthRef.current = isAuthenticated;
+    }
+  }, [isAuthenticated, reset]);
+
   const handleSaveClick = (item: MediaItemResponse) => {
-    // TODO: Implement save to collection modal
-    console.log('Save clicked:', item.id);
-    // For now, just alert
-    alert(`Save feature coming soon! Media: ${item.title || item.id}`);
+    if (!isAuthenticated) {
+      router.push('/auth/login');
+      return;
+    }
+    setSaveModalMedia(item);
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <Header />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
-        {/* Page Title */}
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
-            Discover
-          </h1>
-          <p className="text-gray-400">
-            Explore {items.length > 0 && `${items.length}+ `}amazing visual content
-          </p>
-        </div>
-
+      <main className="pt-24 px-2 sm:px-4 max-w-[1600px] mx-auto">
         {/* Initial Loading State */}
         {isInitialLoad ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="relative mb-8">
-              <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-pink-500 rounded-full animate-spin" style={{ animationDuration: '1.5s' }}></div>
-            </div>
-            <p className="text-gray-400 animate-pulse">Loading amazing content...</p>
+          <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-4">
+            {Array.from({ length: 20 }).map((_, idx) => {
+              // Random heights for initial skeleton loading
+              const heights = ['250px', '320px', '280px', '350px', '300px', '270px', '310px', '290px', '330px', '260px'];
+              const randomHeight = heights[idx % heights.length];
+
+              return (
+                <div key={idx} className="break-inside-avoid mb-4">
+                  <div
+                    className="bg-gray-100 rounded-2xl overflow-hidden animate-pulse"
+                    style={{ height: randomHeight }}
+                  >
+                    <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-100" />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           /* Masonry Grid with Infinite Scroll */
@@ -73,6 +94,19 @@ export default function Home() {
           mediaUrl={selectedMedia.mediaUrl}
           mediaType={selectedMedia.mediaType}
           onClose={() => setSelectedMedia(null)}
+        />
+      )}
+
+      {/* Save to Collection Modal */}
+      {saveModalMedia && (
+        <SaveToCollectionModal
+          mediaId={saveModalMedia.id}
+          mediaTitle={saveModalMedia.title || saveModalMedia.filename}
+          onClose={() => setSaveModalMedia(null)}
+          onSaved={() => {
+            // Optional: Show success message
+            console.log('Saved successfully');
+          }}
         />
       )}
     </div>

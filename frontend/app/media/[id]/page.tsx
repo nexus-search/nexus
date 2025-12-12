@@ -43,7 +43,7 @@ export default function MediaPage({ params }: MediaPageProps) {
     } catch (error: any) {
       console.error('Failed to load media:', error);
       if (error.message?.includes('404')) {
-        router.push('/library');
+        router.push('/profile');
       }
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ export default function MediaPage({ params }: MediaPageProps) {
     if (!confirm('Are you sure you want to delete this media? This action cannot be undone.')) return;
     try {
       await mediaService.deleteMedia(id);
-      router.push('/library');
+      router.push('/profile');
     } catch (error: any) {
       console.error('Failed to delete media:', error);
       alert('Failed to delete media: ' + (error.message || 'Unknown error'));
@@ -153,10 +153,10 @@ export default function MediaPage({ params }: MediaPageProps) {
       <main className="relative flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-4">
           <Link
-            href="/library"
+            href="/profile"
             className="text-gray-400 hover:text-white transition-colors"
           >
-            ← Back to Library
+            ← Back to Profile
           </Link>
         </div>
 

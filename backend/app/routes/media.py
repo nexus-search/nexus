@@ -32,11 +32,15 @@ def _image_to_media_response(
     similarity_score: Optional[float] = None
 ) -> MediaItemResponse:
     """Convert Image model to MediaItemResponse."""
+    # Use medium_url or file_path for full image, thumbnail_url for thumbnails
+    media_url = getattr(image, 'medium_url', None) or image.file_path or ""
+    thumbnail_url = getattr(image, 'thumbnail_url', media_url)
+
     return MediaItemResponse(
         id=str(image.id),
         filename=image.title or "untitled",
-        mediaUrl=image.file_path or "",
-        thumbnailUrl=getattr(image, 'thumbnail_url', image.file_path or ""),
+        mediaUrl=media_url,
+        thumbnailUrl=thumbnail_url,
         mediaType="image",
         similarityScore=similarity_score,
         fileSize=getattr(image, 'file_size', 0),
@@ -153,6 +157,38 @@ async def upload_media(
         if 'temp_path' in locals() and os.path.exists(temp_path):
             os.unlink(temp_path)
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.get("/public", response_model=PaginatedResponse)
+async def list_public_media(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page")
+):
+    """
+    List public media items with pagination. No authentication required.
+
+    Returns:
+        PaginatedResponse with public media items
+    """
+    try:
+        # Get public images with proper database-level pagination
+        public_images = await image_service.repo.find_public(page=page, limit=page_size)
+        total = await image_service.repo.count_public()
+
+        print(f"[DEBUG] Found {len(public_images)} public images, total: {total}, page: {page}, page_size: {page_size}")
+
+        items = [_image_to_media_response(img) for img in public_images]
+
+        return PaginatedResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_more=(page * page_size) < total
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list public media: {str(e)}")
 
 
 @router.get("/{media_id}", response_model=MediaItemResponse)

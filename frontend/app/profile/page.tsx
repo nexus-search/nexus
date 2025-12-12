@@ -18,10 +18,16 @@ export default function ProfilePage() {
   const [selectedMedia, setSelectedMedia] = useState<MediaItemResponse | null>(null);
   const [collections, setCollections] = useState<CollectionResponse[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
+  const [totalPins, setTotalPins] = useState(0);
 
   // Fetch user's created media
   const fetchUserMedia = useCallback(async (page: number, pageSize: number) => {
-    return await mediaService.getUserMedia({ page, pageSize });
+    const result = await mediaService.getUserMedia({ page, pageSize });
+    // Update total count from first page
+    if (page === 1 && result.total !== undefined) {
+      setTotalPins(result.total);
+    }
+    return result;
   }, []);
 
   const { items, loading, hasMore, loadMore, isInitialLoad } = useInfiniteScroll(
@@ -29,7 +35,7 @@ export default function ProfilePage() {
     { pageSize: 30 }
   );
 
-  // Fetch collections
+  // Fetch collections on mount
   const fetchCollections = useCallback(async () => {
     setCollectionsLoading(true);
     try {
@@ -41,6 +47,13 @@ export default function ProfilePage() {
       setCollectionsLoading(false);
     }
   }, []);
+
+  // Load collections on mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCollections();
+    }
+  }, [isAuthenticated, fetchCollections]);
 
   // Load collections when switching to saved tab
   const handleTabChange = (tab: 'created' | 'saved') => {
@@ -80,8 +93,12 @@ export default function ProfilePage() {
         <div className="max-w-4xl mx-auto px-4 mb-8">
           <div className="flex flex-col items-center text-center mb-8">
             {/* Avatar */}
-            <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-bold text-4xl mb-4">
-              {user?.username?.charAt(0).toUpperCase()}
+            <div className="w-32 h-32 rounded-full overflow-hidden mb-4 border-4 border-gray-200">
+              <img
+                src="/profile.png"
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
             </div>
 
             {/* Name */}
@@ -91,7 +108,7 @@ export default function ProfilePage() {
             {/* Stats */}
             <div className="flex items-center gap-6 mt-6">
               <div className="text-center">
-                <p className="text-xl font-bold text-gray-900">{items.length}</p>
+                <p className="text-xl font-bold text-gray-900">{totalPins}</p>
                 <p className="text-sm text-gray-600">Pins</p>
               </div>
               <div className="text-center">
@@ -206,21 +223,30 @@ export default function ProfilePage() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {collections.map((collection) => (
                     <button
                       key={collection.id}
                       onClick={() => router.push(`/collections/${collection.id}`)}
-                      className="group aspect-square bg-gray-100 rounded-2xl overflow-hidden hover:opacity-90 transition-opacity"
+                      className="group text-left"
                     >
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-100">
-                        <div className="text-center p-4">
-                          <h3 className="font-bold text-lg text-gray-900 mb-1">{collection.name}</h3>
-                          {collection.description && (
-                            <p className="text-sm text-gray-600 line-clamp-2">{collection.description}</p>
-                          )}
-                        </div>
+                      <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 relative hover:opacity-90 transition-opacity mb-2">
+                        {collection.coverImageUrl ? (
+                          <img
+                            src={collection.coverImageUrl}
+                            alt={collection.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                            <svg className="w-16 h-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
                       </div>
+                      <h3 className="font-semibold text-gray-900 truncate">{collection.name}</h3>
+                      <p className="text-sm text-gray-500">{collection.mediaCount} pins</p>
                     </button>
                   ))}
                 </div>

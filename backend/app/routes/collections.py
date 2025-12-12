@@ -5,6 +5,7 @@ Consolidated from /use routes with proper RESTful structure.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, List
+from datetime import datetime
 
 from app.util.current_user import get_current_user
 from app.models.user import User
@@ -20,6 +21,12 @@ from app.schemas.responses import (
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 collection_service = CollectionService()
+
+
+def _user_owns_collection(user: User, collection: Collection) -> bool:
+    """Check if user owns the collection by comparing IDs."""
+    user_collection_ids = {str(c.id) for c in (user.collections or [])}
+    return str(collection.id) in user_collection_ids
 
 
 # Request models
@@ -61,8 +68,8 @@ def _collection_to_response(collection: Collection, owner: User) -> CollectionRe
         name=collection.name,
         description=collection.description,
         mediaCount=media_count,
-        createdAt=getattr(collection, 'created_at', '').isoformat() if hasattr(collection, 'created_at') else '',
-        updatedAt=getattr(collection, 'updated_at', None).isoformat() if hasattr(collection, 'updated_at') and collection.updated_at else None,
+        createdAt=collection.created_at.isoformat() if collection.created_at else datetime.utcnow().isoformat(),
+        updatedAt=collection.updated_at.isoformat() if collection.updated_at else None,
         isPublic=not collection.private,
         coverImageId=getattr(collection, 'cover_image_id', None),
         coverImageUrl=cover_image_url
@@ -74,7 +81,16 @@ async def list_collections(current_user: User = Depends(get_current_user)):
     """
     List all collections for the current user.
     """
-    collections = current_user.collections or []
+    # Get collection IDs from user's embedded collections
+    collection_ids = [str(coll.id) for coll in (current_user.collections or [])]
+    
+    # Fetch fresh collection documents from database
+    collections = []
+    for coll_id in collection_ids:
+        collection = await collection_service.get_collection_by_id(coll_id)
+        if collection:
+            collections.append(collection)
+    
     return [_collection_to_response(coll, current_user) for coll in collections]
 
 
@@ -111,7 +127,7 @@ async def get_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
 
     # Check if user owns this collection
-    if collection not in (current_user.collections or []):
+    if not _user_owns_collection(current_user, collection):
         raise HTTPException(status_code=403, detail="You don't have access to this collection")
 
     return _collection_to_response(collection, current_user)
@@ -132,7 +148,7 @@ async def update_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
 
     # Check ownership
-    if collection not in (current_user.collections or []):
+    if not _user_owns_collection(current_user, collection):
         raise HTTPException(status_code=403, detail="You don't have access to this collection")
 
     # Update fields
@@ -169,12 +185,13 @@ async def delete_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
 
     # Check ownership
-    if collection not in (current_user.collections or []):
+    if not _user_owns_collection(current_user, collection):
         raise HTTPException(status_code=403, detail="You don't have access to this collection")
 
-    # Remove from user's collections
-    current_user.collections.remove(collection)
-    await current_user.save()
+    # Remove from user's collections (filter by ID instead of object comparison)
+    if current_user.collections:
+        current_user.collections = [c for c in current_user.collections if str(c.id) != collection_id]
+        await current_user.save()
 
     # Delete the collection
     await collection_service.delete_collection(collection_id)
@@ -201,7 +218,7 @@ async def get_collection_media(
         raise HTTPException(status_code=404, detail="Collection not found")
 
     # Check ownership (or public access in future)
-    if collection not in (current_user.collections or []):
+    if not _user_owns_collection(current_user, collection):
         if collection.private:
             raise HTTPException(status_code=403, detail="You don't have access to this collection")
 
@@ -256,7 +273,7 @@ async def add_media_to_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
 
     # Check ownership
-    if collection not in (current_user.collections or []):
+    if not _user_owns_collection(current_user, collection):
         raise HTTPException(status_code=403, detail="You don't have access to this collection")
 
     # Initialize images list if needed
@@ -300,7 +317,7 @@ async def remove_media_from_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
 
     # Check ownership
-    if collection not in (current_user.collections or []):
+    if not _user_owns_collection(current_user, collection):
         raise HTTPException(status_code=403, detail="You don't have access to this collection")
 
     # Find and remove the image

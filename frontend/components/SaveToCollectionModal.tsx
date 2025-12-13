@@ -18,6 +18,10 @@ export default function SaveToCollectionModal({
   onSaved,
 }: SaveToCollectionModalProps) {
   const [collections, setCollections] = useState<CollectionResponse[]>([]);
+  const [filteredCollections, setFilteredCollections] = useState<CollectionResponse[]>([]);
+  const [visibleCount, setVisibleCount] = useState(12);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCreateNew, setShowCreateNew] = useState(false);
@@ -29,11 +33,26 @@ export default function SaveToCollectionModal({
     loadCollections();
   }, []);
 
+  // Debounced search filtering
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      const q = searchQuery.trim().toLowerCase();
+      const next = q
+        ? collections.filter((c) => c.name.toLowerCase().includes(q))
+        : collections;
+      setFilteredCollections(next);
+      setVisibleCount(12);
+      setShowAutocomplete(!!q);
+    }, 200);
+    return () => clearTimeout(handler);
+  }, [searchQuery, collections]);
+
   const loadCollections = async () => {
     try {
       setLoading(true);
       const data = await collectionService.getAll();
       setCollections(data);
+      setFilteredCollections(data);
     } catch (err: any) {
       console.error('Failed to load collections:', err);
       setError('Failed to load collections');
@@ -170,6 +189,35 @@ export default function SaveToCollectionModal({
           ) : (
             /* Collection List */
             <div className="space-y-2">
+              {/* Search Input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search boards..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-[#e60023] focus:border-transparent"
+                  onFocus={() => setShowAutocomplete(!!searchQuery.trim())}
+                  onBlur={() => setTimeout(() => setShowAutocomplete(false), 150)}
+                />
+                {showAutocomplete && filteredCollections.length > 0 && (
+                  <div className="absolute z-10 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+                    {filteredCollections.slice(0, 8).map((c) => (
+                      <button
+                        key={c.id}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setSearchQuery(c.name);
+                          setShowAutocomplete(false);
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50"
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               {/* Create New Button */}
               <button
                 onClick={() => setShowCreateNew(true)}
@@ -185,9 +233,9 @@ export default function SaveToCollectionModal({
                 </span>
               </button>
 
-              {/* Existing Collections */}
-              {collections.length > 0 ? (
-                collections.map((collection) => (
+              {/* Existing Collections with limit */}
+              {filteredCollections.length > 0 ? (
+                filteredCollections.slice(0, visibleCount).map((collection) => (
                   <button
                     key={collection.id}
                     onClick={() => handleSaveToCollection(collection.id)}
@@ -217,6 +265,18 @@ export default function SaveToCollectionModal({
                 <p className="text-center text-gray-500 py-8">
                   No boards yet. Create your first one!
                 </p>
+              )}
+
+              {/* Show More */}
+              {filteredCollections.length > visibleCount && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => setVisibleCount((v) => v + 12)}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    Show more
+                  </button>
+                </div>
               )}
             </div>
           )}

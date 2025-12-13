@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import MasonryGrid from '@/components/MasonryGrid';
+import MediaViewer from '@/components/MediaViewer';
 import { useAuth } from '@/contexts/AuthContext';
 import { searchService } from '@/lib/services/search.service';
 import type { MediaItemResponse } from '@/lib/types/api';
@@ -23,6 +24,7 @@ export default function ImageSearchPage() {
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [selectedItemIndex, setSelectedItemIndex] = useState<number>(-1);
 
   const pageSize = 20;
 
@@ -91,9 +93,13 @@ export default function ImageSearchPage() {
       });
 
       setResults(res.items);
-      if (res.total) setTotal(res.total);
-      setHasMore(res.total ? res.items.length < res.total : false);
+      if (res.total !== undefined) setTotal(res.total);
+
+      // Use backend's has_more flag
+      setHasMore(res.has_more);
       setPage(2);
+
+      console.log(`Image search - Page 1: Loaded ${res.items.length} items. Total: ${res.total}. Has more: ${res.has_more}`);
     } catch (err: any) {
       console.error('Image search failed:', err);
       setError(err.message || 'Failed to search. Please try again.');
@@ -112,11 +118,22 @@ export default function ImageSearchPage() {
         page: pageNum,
         pageSize,
       });
+
+      // Calculate new total before updating state
+      const currentResultsCount = results.length;
+      const newTotalItems = currentResultsCount + res.items.length;
+
+      // Append new items
       setResults(prev => [...prev, ...res.items]);
-      if (res.total) setTotal(res.total);
-      const nextCount = results.length + res.items.length;
-      setHasMore(res.total ? nextCount < res.total : false);
+
+      // Update total
+      if (res.total !== undefined) setTotal(res.total);
+
+      // Use backend's has_more flag
+      setHasMore(res.has_more);
       setPage(pageNum + 1);
+
+      console.log(`Image search - Page ${pageNum}: Loaded ${res.items.length} items. Total loaded: ${newTotalItems}/${res.total}. Has more: ${res.has_more}`);
     } catch (e) {
       console.error('Load more failed', e);
       setHasMore(false);
@@ -223,15 +240,56 @@ export default function ImageSearchPage() {
           </div>
         )}
 
+        {/* Initial Loading Skeleton */}
+        {searching && results.length === 0 && (
+          <div className="w-full">
+            <div className="mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="animate-spin h-6 w-6 border-3 border-[#e60023] border-t-transparent rounded-full"></div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Searching for similar images...</h2>
+              </div>
+              {previewUrl && (
+                <div className="flex items-center gap-4">
+                  <img src={previewUrl} alt="Search query" className="w-20 h-20 rounded-lg object-cover border-2 border-[#e60023]" />
+                  <p className="text-gray-600">Finding visually similar content</p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 sm:gap-4">
+              {Array.from({ length: 5 }).map((_, colIdx) => (
+                <div key={colIdx} className="flex-1 flex flex-col gap-3 sm:gap-4">
+                  {Array.from({ length: 3 }).map((_, rowIdx) => (
+                    <div key={rowIdx} className="animate-pulse">
+                      <div
+                        className="bg-gray-100 rounded-2xl overflow-hidden"
+                        style={{ height: `${200 + ((colIdx + rowIdx) % 3) * 80}px` }}
+                      >
+                        <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-100" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Results Section */}
         {results.length > 0 && (
           <div>
-            <div className="mb-8 flex items-center justify-between">
+            <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold mb-1">Similar Images</h2>
-                <p className="text-gray-600">
-                  Found {total.toLocaleString()} similar {total === 1 ? 'result' : 'results'}
-                </p>
+                <div className="flex items-center gap-4 mb-2">
+                  {previewUrl && (
+                    <img src={previewUrl} alt="Search query" className="w-16 h-16 rounded-lg object-cover border-2 border-[#e60023]" />
+                  )}
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Similar Images</h2>
+                    <p className="text-gray-600">
+                      Found {total.toLocaleString()} similar {total === 1 ? 'result' : 'results'}
+                    </p>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -240,7 +298,7 @@ export default function ImageSearchPage() {
                   setResults([]);
                   setError('');
                 }}
-                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-colors"
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 transition-colors whitespace-nowrap"
               >
                 New Search
               </button>
@@ -255,11 +313,26 @@ export default function ImageSearchPage() {
               }}
               hasMore={hasMore}
               loading={loading}
-              onItemClick={(item) => router.push(`/pin/${item.id}`)}
+              onItemClick={(item) => {
+                const idx = results.findIndex(i => i.id === item.id);
+                setSelectedItemIndex(idx);
+              }}
             />
           </div>
         )}
       </main>
+
+      {/* MediaViewer Modal */}
+      {selectedItemIndex >= 0 && results[selectedItemIndex] && (
+        <MediaViewer
+          mediaUrl={results[selectedItemIndex].mediaUrl || results[selectedItemIndex].thumbnailUrl || ''}
+          mediaType={results[selectedItemIndex].mediaType}
+          onClose={() => setSelectedItemIndex(-1)}
+          items={results}
+          currentIndex={selectedItemIndex}
+          onNavigate={(idx) => setSelectedItemIndex(idx)}
+        />
+      )}
     </div>
   );
 }

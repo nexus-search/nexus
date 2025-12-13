@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 const Header = () => {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [searchType, setSearchType] = useState<'text' | 'image'>('text');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, user, logout } = useAuth();
@@ -22,8 +25,27 @@ const Header = () => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [userDropdownOpen]);
 
-  const handleImageSearch = () => {
-    router.push('/search/media');
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleTextSearch = () => {
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      setIsSearching(true);
+      router.push(`/explore?q=${encodeURIComponent(trimmedQuery)}`);
+      // Reset searching state after navigation starts
+      setTimeout(() => setIsSearching(false), 500);
+    }
+  };
+
+  const handleSearchInputChange = (value: string) => {
+    setSearchQuery(value);
   };
 
   return (
@@ -56,19 +78,41 @@ const Header = () => {
               </button>
 
               {searchType === 'text' ? (
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="flex-1 px-2 py-3 bg-transparent text-gray-800 placeholder-gray-500 focus:outline-none"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const value = (e.target as HTMLInputElement).value.trim();
-                      if (value) {
-                        router.push(`/explore?q=${encodeURIComponent(value)}`);
+                <>
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearchInputChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleTextSearch();
                       }
-                    }
-                  }}
-                />
+                    }}
+                    className="flex-1 px-2 py-3 bg-transparent text-gray-800 placeholder-gray-500 focus:outline-none"
+                    disabled={isSearching}
+                  />
+
+                  {/* Search Button or Loading Spinner */}
+                  {isSearching ? (
+                    <div className="flex-shrink-0 p-3">
+                      <svg className="animate-spin h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
+                  ) : searchQuery.trim() ? (
+                    <button
+                      onClick={handleTextSearch}
+                      className="flex-shrink-0 p-3 hover:bg-gray-300 rounded-full transition-colors"
+                      title="Search"
+                    >
+                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </>
               ) : (
                 <button
                   onClick={() => router.push('/search/image')}

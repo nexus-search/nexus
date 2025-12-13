@@ -66,6 +66,20 @@ class AuthService {
   }
 
   /**
+   * Request password reset email
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return post<{ message: string }>('/api/v1/auth/forgot-password', { email });
+  }
+
+  /**
+   * Reset password with token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    return post<{ message: string }>('/api/v1/auth/reset-password', { token, newPassword });
+  }
+
+  /**
    * Decode JWT token payload
    */
   private decodeJWT(token: string): any {

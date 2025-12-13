@@ -284,6 +284,61 @@ async def list_user_media(
         raise HTTPException(status_code=500, detail=f"Failed to list media: {str(e)}")
 
 
+@router.patch("/{media_id}", response_model=MediaItemResponse)
+async def update_media(
+    media_id: str,
+    title: Optional[str] = Query(None, description="New title"),
+    description: Optional[str] = Query(None, description="New description"),
+    tags: Optional[str] = Query(None, description="Comma-separated tags"),
+    visibility: Optional[str] = Query(None, description="Visibility: public or private"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update media metadata (title, description, tags, visibility).
+
+    Args:
+        media_id: The ID of the media item
+        title: New title (optional)
+        description: New description (optional)
+        tags: Comma-separated tags (optional)
+        visibility: New visibility setting (optional)
+
+    Returns:
+        MediaItemResponse with updated metadata
+    """
+    try:
+        # Get the image
+        image = await Image.get(media_id)
+        if not image:
+            raise HTTPException(status_code=404, detail="Media not found")
+
+        # Verify ownership
+        if getattr(image, 'owner_id', '') != str(current_user.id):
+            raise HTTPException(status_code=403, detail="You don't have permission to edit this media")
+
+        # Update fields if provided
+        if title is not None:
+            image.title = title
+        if description is not None:
+            image.description = description
+        if tags is not None:
+            image.tags = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        if visibility is not None:
+            if visibility not in ['public', 'private']:
+                raise HTTPException(status_code=400, detail="Visibility must be 'public' or 'private'")
+            image.visibility = visibility
+
+        # Save to MongoDB
+        await image.save()
+
+        return _image_to_media_response(image)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update media: {str(e)}")
+
+
 @router.delete("/{media_id}", response_model=MessageResponse)
 async def delete_media(
     media_id: str,

@@ -25,26 +25,29 @@ services:
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
       - DEFAULT_CLIP_MODEL=${DEFAULT_CLIP_MODEL:-openai/clip-vit-base-patch32}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     volumes:
       - ./app:/app/app
       - ../../uploads:/app/uploads
       - ./scripts:/app/scripts
     depends_on:
+      - mongodb
       - elasticsearch
+      - redis
     networks:
       - nexus-network
 
-  # mongodb:
-  #   image: mongo:latest
-  #   environment:
-  #     - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-admin}
-  #     - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-changeme}
-  #   ports:
-  #     - "27017:27017"
-  #   volumes:
-  #     - mongodb_data:/data/db
-  #   networks:
-  #     - nexus-network
+  mongodb:
+    image: mongo:latest
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-changeme}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - nexus-network
 
   elasticsearch:
     image: elasticsearch:9.2.0
@@ -59,9 +62,25 @@ services:
     networks:
       - nexus-network
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - nexus-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
 volumes:
   mongodb_data:
   elasticsearch_data:
+  redis_data:
 
 networks:
   nexus-network:

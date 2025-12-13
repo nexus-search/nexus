@@ -66,6 +66,16 @@ export function useInfiniteScroll<T>(
     isLoadingRef.current = false;
   }, [initialPage]);
 
+  const removeItem = useCallback((itemId: string) => {
+    setItems(prev => prev.filter((item: any) => item.id !== itemId));
+  }, []);
+
+  const updateItem = useCallback((itemId: string, updates: Partial<T>) => {
+    setItems(prev => prev.map((item: any) =>
+      item.id === itemId ? { ...item, ...updates } : item
+    ));
+  }, []);
+
   // Load initial data only once on mount or after reset
   useEffect(() => {
     if (initialLoad && items.length === 0 && !loading && !hasLoadedRef.current) {
@@ -81,6 +91,8 @@ export function useInfiniteScroll<T>(
     error,
     loadMore,
     reset,
+    removeItem,
+    updateItem,
     isInitialLoad: initialLoad && loading,
   };
 }

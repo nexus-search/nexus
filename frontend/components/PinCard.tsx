@@ -6,9 +6,12 @@ interface PinCardProps {
   item: MediaItemResponse;
   onClick: () => void;
   onSaveClick?: (item: MediaItemResponse) => void;
+  onRemoveClick?: (item: MediaItemResponse) => void;
+  onDeleteClick?: (item: MediaItemResponse) => void;
+  onEditClick?: (item: MediaItemResponse) => void;
 }
 
-export default function PinCard({ item, onClick, onSaveClick }: PinCardProps) {
+export default function PinCard({ item, onClick, onSaveClick, onRemoveClick, onDeleteClick, onEditClick }: PinCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -77,19 +80,63 @@ export default function PinCard({ item, onClick, onSaveClick }: PinCardProps) {
 
         {/* Hover Overlay - Pinterest Style */}
         <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
-          {/* Save Button - Top Right */}
-          {onSaveClick && (
-            <div className="absolute top-3 right-3">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSaveClick(item);
-                }}
-                className="px-4 py-2 bg-[#e60023] hover:bg-[#ad081b] rounded-full text-white text-sm font-semibold shadow-lg transition-colors"
-                aria-label="Save"
-              >
-                Save
-              </button>
+          {/* Action Buttons - Top Right */}
+          {(onSaveClick || onRemoveClick || onDeleteClick || onEditClick) && (
+            <div className="absolute top-3 right-3 flex gap-2">
+              {onSaveClick && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSaveClick(item);
+                  }}
+                  className="px-4 py-2 bg-[#e60023] hover:bg-[#ad081b] rounded-full text-white text-sm font-semibold shadow-lg transition-colors"
+                  aria-label="Save"
+                >
+                  Save
+                </button>
+              )}
+              {onRemoveClick && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveClick(item);
+                  }}
+                  className="px-4 py-2 bg-gray-800 hover:bg-gray-900 rounded-full text-white text-sm font-semibold shadow-lg transition-colors"
+                  aria-label="Remove"
+                >
+                  Remove
+                </button>
+              )}
+              {onEditClick && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditClick(item);
+                  }}
+                  className="w-9 h-9 bg-white hover:bg-gray-100 rounded-full shadow-lg transition-colors flex items-center justify-center"
+                  aria-label="Edit"
+                  title="Edit"
+                >
+                  <svg className="w-4 h-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
+              {onDeleteClick && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteClick(item);
+                  }}
+                  className="w-9 h-9 bg-red-600 hover:bg-red-700 rounded-full shadow-lg transition-colors flex items-center justify-center"
+                  aria-label="Delete"
+                  title="Delete"
+                >
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
             </div>
           )}
 

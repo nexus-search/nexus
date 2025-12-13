@@ -10,6 +10,9 @@ interface MasonryGridProps {
   loading: boolean;
   onItemClick: (item: MediaItemResponse) => void;
   onSaveClick?: (item: MediaItemResponse) => void;
+  onRemoveClick?: (item: MediaItemResponse) => void;
+  onDeleteClick?: (item: MediaItemResponse) => void;
+  onEditClick?: (item: MediaItemResponse) => void;
 }
 
 export default function MasonryGrid({
@@ -19,6 +22,9 @@ export default function MasonryGrid({
   loading,
   onItemClick,
   onSaveClick,
+  onRemoveClick,
+  onDeleteClick,
+  onEditClick,
 }: MasonryGridProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -102,6 +108,9 @@ export default function MasonryGrid({
                 item={item}
                 onClick={() => onItemClick(item)}
                 onSaveClick={onSaveClick}
+                onRemoveClick={onRemoveClick}
+                onDeleteClick={onDeleteClick}
+                onEditClick={onEditClick}
               />
             ))}
 

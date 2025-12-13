@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { collectionService } from '@/lib/services/collection.service';
 import type { CollectionResponse } from '@/lib/types/api';
+import toast from 'react-hot-toast';
 
 interface SaveToCollectionModalProps {
   mediaId: string;
@@ -42,14 +43,17 @@ export default function SaveToCollectionModal({
   };
 
   const handleSaveToCollection = async (collectionId: string) => {
+    const toastId = toast.loading('Saving to board...');
     try {
       setSaving(true);
       setError('');
       await collectionService.addMedia(collectionId, [mediaId]);
+      toast.success('Saved to board!', { id: toastId });
       onSaved?.();
       onClose();
     } catch (err: any) {
       console.error('Failed to save to collection:', err);
+      toast.error(err.message || 'Failed to save to board', { id: toastId });
       setError(err.message || 'Failed to save to collection');
     } finally {
       setSaving(false);
@@ -58,10 +62,12 @@ export default function SaveToCollectionModal({
 
   const handleCreateAndSave = async () => {
     if (!newCollectionName.trim()) {
+      toast.error('Board name is required');
       setError('Collection name is required');
       return;
     }
 
+    const toastId = toast.loading('Creating board...');
     try {
       setSaving(true);
       setError('');
@@ -70,10 +76,12 @@ export default function SaveToCollectionModal({
         description: newCollectionDescription.trim() || undefined,
       });
       await collectionService.addMedia(newCollection.id, [mediaId]);
+      toast.success('Board created and pin saved!', { id: toastId });
       onSaved?.();
       onClose();
     } catch (err: any) {
       console.error('Failed to create collection:', err);
+      toast.error(err.message || 'Failed to create board', { id: toastId });
       setError(err.message || 'Failed to create collection');
     } finally {
       setSaving(false);

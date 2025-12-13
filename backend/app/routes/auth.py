@@ -24,6 +24,13 @@ class LoginRequest(BaseModel):
 class RefreshTokenRequest(BaseModel):
     refreshToken: str
 
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    newPassword: str
+
 
 @router.post("/register")
 async def register(data: RegisterRequest):
@@ -93,3 +100,29 @@ async def logout(current_user=Depends(get_current_user)):
 @router.get("/me")
 async def me(current_user=Depends(get_current_user)):
     return {"id": str(current_user.id), "email": current_user.email, "username": current_user.username}
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(data: ForgotPasswordRequest):
+    """
+    Send password reset email to user.
+    In production, this would send an email with a reset link.
+    For now, we'll generate a reset token and return it (in production, only send via email).
+    """
+    result = await auth_service.forgot_password(data.email)
+    return MessageResponse(
+        message="Password reset instructions sent",
+        detail=result.get("message", "Check your email for reset instructions")
+    )
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(data: ResetPasswordRequest):
+    """
+    Reset password using the reset token.
+    """
+    await auth_service.reset_password(data.token, data.newPassword)
+    return MessageResponse(
+        message="Password reset successful",
+        detail="You can now login with your new password"
+    )

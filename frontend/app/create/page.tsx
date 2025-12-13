@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { mediaService } from '@/lib/services/media.service';
+import toast from 'react-hot-toast';
 
 export default function CreatePage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function CreatePage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
+  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
@@ -76,12 +78,15 @@ export default function CreatePage() {
     e.preventDefault();
 
     if (!file) {
+      toast.error('Please select a file');
       setError('Please select a file');
       return;
     }
 
     setUploading(true);
     setError('');
+
+    const toastId = toast.loading('Uploading pin...');
 
     try {
       const tagsArray = tags
@@ -94,13 +99,17 @@ export default function CreatePage() {
         title: title || file.name,
         description,
         tags: tagsArray.join(','),
-        visibility: 'public',
+        visibility,
       });
+
+      toast.success('Pin created successfully!', { id: toastId });
 
       // Success! Redirect to profile
       router.push('/profile');
     } catch (err: any) {
-      setError(err.message || 'Failed to upload. Please try again.');
+      const errorMsg = err.message || 'Failed to upload. Please try again.';
+      toast.error(errorMsg, { id: toastId });
+      setError(errorMsg);
       setUploading(false);
     }
   };
@@ -245,6 +254,57 @@ export default function CreatePage() {
                     placeholder="Separate tags with commas (e.g., nature, sunset, beach)"
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-gray-900 placeholder-gray-500 focus:outline-none focus:border-[#e60023] transition-colors"
                   />
+                </div>
+
+                {/* Visibility */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-3">
+                    Visibility
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setVisibility('public')}
+                      className={`p-4 rounded-2xl border-2 transition-all ${
+                        visibility === 'public'
+                          ? 'border-[#e60023] bg-red-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <svg className={`w-5 h-5 ${visibility === 'public' ? 'text-[#e60023]' : 'text-gray-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className={`font-semibold ${visibility === 'public' ? 'text-[#e60023]' : 'text-gray-900'}`}>
+                          Public
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 text-left">
+                        Anyone can see this pin
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVisibility('private')}
+                      className={`p-4 rounded-2xl border-2 transition-all ${
+                        visibility === 'private'
+                          ? 'border-[#e60023] bg-red-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <svg className={`w-5 h-5 ${visibility === 'private' ? 'text-[#e60023]' : 'text-gray-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <span className={`font-semibold ${visibility === 'private' ? 'text-[#e60023]' : 'text-gray-900'}`}>
+                          Private
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 text-left">
+                        Only you can see this pin
+                      </p>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Error Message */}

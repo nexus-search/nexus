@@ -3,11 +3,14 @@ import { use, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import MasonryGrid from '@/components/MasonryGrid';
+import MediaViewer from '@/components/MediaViewer';
 import { useAuth } from '@/contexts/AuthContext';
 import { collectionService } from '@/lib/services/collection.service';
+import { searchService } from '@/lib/services/search.service';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import type { CollectionResponse, MediaItemResponse } from '@/lib/types/api';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 type CollectionPageProps = {
   params: Promise<{ id: string }>;
@@ -19,6 +22,11 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
   const router = useRouter();
   const [collection, setCollection] = useState<CollectionResponse | null>(null);
   const [loadingCollection, setLoadingCollection] = useState(true);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState<number>(-1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchMode, setSearchMode] = useState(false);
+  const [searchResults, setSearchResults] = useState<MediaItemResponse[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -44,13 +52,85 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
     }
   };
 
+  const handleRemoveMedia = async (media: MediaItemResponse) => {
+    // Optimistic update - remove from UI immediately
+    removeItem(media.id);
+
+    // Also remove from search results if in search mode
+    if (searchMode) {
+      setSearchResults(prev => prev.filter(item => item.id !== media.id));
+    }
+
+    // Update collection count
+    if (collection) {
+      setCollection({
+        ...collection,
+        mediaCount: Math.max(0, collection.mediaCount - 1)
+      });
+    }
+
+    // Show loading toast
+    const toastId = toast.loading('Removing pin...');
+
+    try {
+      await collectionService.removeMedia(id, media.id);
+      toast.success('Pin removed from board', { id: toastId });
+
+      // Refresh collection to get accurate count
+      loadCollection();
+    } catch (err) {
+      console.error('Failed to remove media:', err);
+      toast.error('Failed to remove pin', { id: toastId });
+
+      // Reload to restore the item if removal failed
+      loadCollection();
+    }
+  };
+
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchMode(false);
+      setSearchQuery('');
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    const toastId = toast.loading('Searching...');
+
+    try {
+      const results = await searchService.searchByText({
+        query: query.trim(),
+        scope: 'all', // Search all media (public + private) but filter by collection
+        collectionId: id,
+        page: 1,
+        pageSize: 100,
+      });
+
+      setSearchResults(results.items);
+      setSearchMode(true);
+      toast.success(`Found ${results.items.length} result${results.items.length === 1 ? '' : 's'}`, { id: toastId });
+    } catch (err) {
+      console.error('Search failed:', err);
+      toast.error('Search failed', { id: toastId });
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchMode(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
   // Fetch function for infinite scroll
   const fetchMedia = useCallback(async (page: number, pageSize: number) => {
     return await collectionService.getMedia(id, { page, pageSize });
   }, [id]);
 
   // Use infinite scroll hook
-  const { items, loading, hasMore, loadMore, isInitialLoad } = useInfiniteScroll(
+  const { items, loading, hasMore, loadMore, isInitialLoad, removeItem } = useInfiniteScroll(
     fetchMedia,
     { pageSize: 30 }
   );
@@ -82,6 +162,46 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
               <p className="text-gray-500 mt-2">{collection.mediaCount} pins</p>
             </div>
 
+            {/* Search Bar */}
+            <div className="mb-6">
+              <div className="relative max-w-2xl">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch(searchQuery);
+                    } else if (e.key === 'Escape') {
+                      clearSearch();
+                    }
+                  }}
+                  placeholder="Search in this board..."
+                  className="w-full px-4 py-3 pl-12 pr-12 border border-gray-300 rounded-full focus:ring-2 focus:ring-[#e60023] focus:border-transparent"
+                  disabled={searchLoading}
+                />
+                <svg className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {(searchMode || searchQuery) && (
+                  <button
+                    onClick={clearSearch}
+                    className="absolute right-4 top-3 p-0.5 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Clear search"
+                  >
+                    <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {searchMode && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Showing {searchResults.length} result{searchResults.length === 1 ? '' : 's'} for "{searchQuery}"
+                </p>
+              )}
+            </div>
+
             {/* Masonry Grid */}
             {isInitialLoad ? (
               <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-4">
@@ -97,13 +217,18 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
                   );
                 })}
               </div>
-            ) : items.length > 0 ? (
+            ) : (searchMode ? searchResults.length > 0 : items.length > 0) ? (
               <MasonryGrid
-                items={items}
-                onLoadMore={loadMore}
-                hasMore={hasMore}
-                loading={loading}
-                onItemClick={(item) => router.push(`/pin/${item.id}`)}
+                items={searchMode ? searchResults : items}
+                onLoadMore={searchMode ? () => {} : loadMore}
+                hasMore={searchMode ? false : hasMore}
+                loading={searchMode ? false : loading}
+                onItemClick={(item) => {
+                  const displayItems = searchMode ? searchResults : items;
+                  const idx = displayItems.findIndex(i => i.id === item.id);
+                  setSelectedMediaIndex(idx);
+                }}
+                onRemoveClick={handleRemoveMedia}
               />
             ) : (
               <div className="text-center py-20">
@@ -132,6 +257,18 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
           </div>
         )}
       </main>
+
+      {/* Media Viewer Modal */}
+      {selectedMediaIndex >= 0 && (searchMode ? searchResults : items)[selectedMediaIndex] && (
+        <MediaViewer
+          mediaUrl={(searchMode ? searchResults : items)[selectedMediaIndex].mediaUrl || (searchMode ? searchResults : items)[selectedMediaIndex].thumbnailUrl || ''}
+          mediaType={(searchMode ? searchResults : items)[selectedMediaIndex].mediaType}
+          onClose={() => setSelectedMediaIndex(-1)}
+          items={searchMode ? searchResults : items}
+          currentIndex={selectedMediaIndex}
+          onNavigate={(idx) => setSelectedMediaIndex(idx)}
+        />
+      )}
     </div>
   );
 }

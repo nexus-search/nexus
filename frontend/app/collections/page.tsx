@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { collectionService } from '@/lib/services/collection.service';
 import type { CollectionResponse } from '@/lib/types/api';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 export default function CollectionsPage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -51,7 +52,12 @@ export default function CollectionsPage() {
   };
 
   const handleCreateBoard = async () => {
-    if (!newBoardName.trim()) return;
+    if (!newBoardName.trim()) {
+      toast.error('Board name is required');
+      return;
+    }
+
+    const toastId = toast.loading('Creating board...');
 
     try {
       setCreating(true);
@@ -60,19 +66,25 @@ export default function CollectionsPage() {
         description: newBoardDescription.trim() || undefined,
       });
       setCollections([newCollection, ...collections]);
+      toast.success('Board created!', { id: toastId });
       setShowCreateModal(false);
       setNewBoardName('');
       setNewBoardDescription('');
     } catch (err: any) {
       console.error('Failed to create board:', err);
-      alert('Failed to create board');
+      toast.error(err.message || 'Failed to create board', { id: toastId });
     } finally {
       setCreating(false);
     }
   };
 
   const handleEditBoard = async () => {
-    if (!editingBoard || !editBoardName.trim()) return;
+    if (!editingBoard || !editBoardName.trim()) {
+      toast.error('Board name is required');
+      return;
+    }
+
+    const toastId = toast.loading('Updating board...');
 
     try {
       setUpdating(true);
@@ -81,13 +93,14 @@ export default function CollectionsPage() {
         description: editBoardDescription.trim() || undefined,
       });
       setCollections(collections.map(c => c.id === updated.id ? updated : c));
+      toast.success('Board updated!', { id: toastId });
       setShowEditModal(false);
       setEditingBoard(null);
       setEditBoardName('');
       setEditBoardDescription('');
     } catch (err: any) {
       console.error('Failed to update board:', err);
-      alert('Failed to update board');
+      toast.error(err.message || 'Failed to update board', { id: toastId });
     } finally {
       setUpdating(false);
     }
@@ -96,15 +109,18 @@ export default function CollectionsPage() {
   const handleDeleteBoard = async () => {
     if (!deletingBoard) return;
 
+    const toastId = toast.loading('Deleting board...');
+
     try {
       setDeleting(true);
       await collectionService.delete(deletingBoard.id);
       setCollections(collections.filter(c => c.id !== deletingBoard.id));
+      toast.success('Board deleted', { id: toastId });
       setShowDeleteConfirm(false);
       setDeletingBoard(null);
     } catch (err: any) {
       console.error('Failed to delete board:', err);
-      alert('Failed to delete board');
+      toast.error(err.message || 'Failed to delete board', { id: toastId });
     } finally {
       setDeleting(false);
     }

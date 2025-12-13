@@ -5,20 +5,23 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import MasonryGrid from '@/components/MasonryGrid';
 import MediaViewer from '@/components/MediaViewer';
+import EditMediaModal from '@/components/EditMediaModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { mediaService } from '@/lib/services/media.service';
 import { collectionService } from '@/lib/services/collection.service';
 import type { MediaItemResponse, CollectionResponse } from '@/lib/types/api';
+import toast from 'react-hot-toast';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'created' | 'saved'>('created');
-  const [selectedMedia, setSelectedMedia] = useState<MediaItemResponse | null>(null);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState<number>(-1);
   const [collections, setCollections] = useState<CollectionResponse[]>([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [totalPins, setTotalPins] = useState(0);
+  const [editingMedia, setEditingMedia] = useState<MediaItemResponse | null>(null);
 
   // Fetch user's created media
   const fetchUserMedia = useCallback(async (page: number, pageSize: number) => {
@@ -30,10 +33,28 @@ export default function ProfilePage() {
     return result;
   }, []);
 
-  const { items, loading, hasMore, loadMore, isInitialLoad } = useInfiniteScroll(
+  const { items, loading, hasMore, loadMore, isInitialLoad, removeItem, updateItem } = useInfiniteScroll(
     fetchUserMedia,
     { pageSize: 30 }
   );
+
+  const handleDeleteMedia = async (media: MediaItemResponse) => {
+    // Optimistic update
+    removeItem(media.id);
+    setTotalPins(prev => Math.max(0, prev - 1));
+
+    const toastId = toast.loading('Deleting pin...');
+
+    try {
+      await mediaService.deleteMedia(media.id);
+      toast.success('Pin deleted', { id: toastId });
+    } catch (err) {
+      console.error('Failed to delete media:', err);
+      toast.error('Failed to delete pin', { id: toastId });
+      // Reload on failure
+      window.location.reload();
+    }
+  };
 
   // Fetch collections on mount
   const fetchCollections = useCallback(async () => {
@@ -193,7 +214,12 @@ export default function ProfilePage() {
                   onLoadMore={loadMore}
                   hasMore={hasMore}
                   loading={loading}
-                  onItemClick={setSelectedMedia}
+                  onItemClick={(item) => {
+                    const idx = items.findIndex(i => i.id === item.id);
+                    setSelectedMediaIndex(idx);
+                  }}
+                  onDeleteClick={handleDeleteMedia}
+                  onEditClick={setEditingMedia}
                 />
               )}
             </>
@@ -257,11 +283,26 @@ export default function ProfilePage() {
       </main>
 
       {/* Media Viewer Modal */}
-      {selectedMedia && (
+      {selectedMediaIndex >= 0 && items[selectedMediaIndex] && (
         <MediaViewer
-          mediaUrl={selectedMedia.mediaUrl}
-          mediaType={selectedMedia.mediaType}
-          onClose={() => setSelectedMedia(null)}
+          mediaUrl={items[selectedMediaIndex].mediaUrl || items[selectedMediaIndex].thumbnailUrl || ''}
+          mediaType={items[selectedMediaIndex].mediaType}
+          onClose={() => setSelectedMediaIndex(-1)}
+          items={items}
+          currentIndex={selectedMediaIndex}
+          onNavigate={(idx) => setSelectedMediaIndex(idx)}
+        />
+      )}
+
+      {/* Edit Media Modal */}
+      {editingMedia && (
+        <EditMediaModal
+          media={editingMedia}
+          onClose={() => setEditingMedia(null)}
+          onUpdated={(updated) => {
+            updateItem(updated.id, updated);
+            setEditingMedia(null);
+          }}
         />
       )}
     </div>

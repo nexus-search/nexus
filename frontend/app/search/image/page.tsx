@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import MasonryGrid from '@/components/MasonryGrid';
 import MediaViewer from '@/components/MediaViewer';
+import SaveToCollectionModal from '@/components/SaveToCollectionModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { searchService } from '@/lib/services/search.service';
 import type { MediaItemResponse } from '@/lib/types/api';
@@ -25,6 +26,7 @@ export default function ImageSearchPage() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number>(-1);
+  const [saveModalMedia, setSaveModalMedia] = useState<MediaItemResponse | null>(null);
 
   const pageSize = 20;
 
@@ -317,6 +319,7 @@ export default function ImageSearchPage() {
                 const idx = results.findIndex(i => i.id === item.id);
                 setSelectedItemIndex(idx);
               }}
+              onSaveClick={setSaveModalMedia}
             />
           </div>
         )}
@@ -331,6 +334,15 @@ export default function ImageSearchPage() {
           items={results}
           currentIndex={selectedItemIndex}
           onNavigate={(idx) => setSelectedItemIndex(idx)}
+        />
+      )}
+
+      {/* Save to Collection Modal */}
+      {saveModalMedia && (
+        <SaveToCollectionModal
+          mediaId={saveModalMedia.id}
+          onClose={() => setSaveModalMedia(null)}
+          onSaved={() => setSaveModalMedia(null)}
         />
       )}
     </div>

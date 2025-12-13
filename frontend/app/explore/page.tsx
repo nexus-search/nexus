@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import MasonryGrid from '@/components/MasonryGrid';
 import MediaViewer from '@/components/MediaViewer';
+import SaveToCollectionModal from '@/components/SaveToCollectionModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { searchService } from '@/lib/services/search.service';
 import type { MediaItemResponse } from '@/lib/types/api';
@@ -22,6 +23,7 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [selectedItemIndex, setSelectedItemIndex] = useState<number>(-1);
+  const [saveModalMedia, setSaveModalMedia] = useState<MediaItemResponse | null>(null);
 
   // Require authentication for search endpoints
   useEffect(() => {
@@ -147,6 +149,7 @@ export default function ExplorePage() {
                   const idx = items.findIndex(i => i.id === item.id);
                   setSelectedItemIndex(idx);
                 }}
+                onSaveClick={setSaveModalMedia}
               />
             )}
           </>
@@ -162,6 +165,15 @@ export default function ExplorePage() {
           items={items}
           currentIndex={selectedItemIndex}
           onNavigate={(idx) => setSelectedItemIndex(idx)}
+        />
+      )}
+
+      {/* Save to Collection Modal */}
+      {saveModalMedia && (
+        <SaveToCollectionModal
+          mediaId={saveModalMedia.id}
+          onClose={() => setSaveModalMedia(null)}
+          onSaved={() => setSaveModalMedia(null)}
         />
       )}
     </div>

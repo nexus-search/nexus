@@ -3,7 +3,7 @@
  * Handles media upload, retrieval, and management
  */
 
-import { get, post, del } from '../utils/api-client';
+import { get, post, del, patch } from '../utils/api-client';
 import type {
   MediaItemResponse,
   UploadResponse,
@@ -87,6 +87,25 @@ class MediaService {
    */
   async listUserMedia(page: number = 1, pageSize: number = 20, visibility?: 'public' | 'private'): Promise<PaginatedResponse<MediaItemResponse>> {
     return this.getUserMedia({ page, pageSize, visibility });
+  }
+
+  /**
+   * Update media metadata
+   */
+  async updateMedia(id: string, updates: {
+    title?: string;
+    description?: string;
+    tags?: string;
+    visibility?: 'public' | 'private';
+  }): Promise<MediaItemResponse> {
+    const params = new URLSearchParams();
+    if (updates.title !== undefined) params.append('title', updates.title);
+    if (updates.description !== undefined) params.append('description', updates.description);
+    if (updates.tags !== undefined) params.append('tags', updates.tags);
+    if (updates.visibility) params.append('visibility', updates.visibility);
+
+    const endpoint = `/api/v1/media/${id}${params.toString() ? '?' + params.toString() : ''}`;
+    return patch<MediaItemResponse>(endpoint, {}, { requireAuth: true });
   }
 
   /**

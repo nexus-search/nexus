@@ -1,0 +1,35 @@
+
+import React from 'react';
+import MediaCard from './MediaCard';
+import type { MediaItemResponse } from '@/lib/types/api';
+
+interface MediaGridProps {
+  items?: MediaItemResponse[];
+  onItemClick?: (item: MediaItemResponse) => void;
+}
+
+const MediaGrid: React.FC<MediaGridProps> = ({ items = [], onItemClick }) => {
+  if (!items.length) {
+    return (
+      <div className="bg-gray-700 p-6 rounded-lg mt-4 text-center text-gray-300">
+        No results yet.
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 mt-4">
+      {items.map((m) => (
+        <MediaCard
+          key={m.id}
+          mediaUrl={m.mediaUrl}
+          thumbnailUrl={m.thumbnailUrl || m.mediaUrl}
+          similarityScore={m.similarityScore}
+          mediaType={m.mediaType}
+          onClick={() => onItemClick?.(m)}
+        />
+      ))}
+    </div>
+  );
+};
+
+export default MediaGrid;

@@ -33,17 +33,29 @@ export default function SaveToCollectionModal({
     loadCollections();
   }, []);
 
-  // Debounced search filtering
+  // Debounced search filtering with optional server-side search
   useEffect(() => {
-    const handler = setTimeout(() => {
-      const q = searchQuery.trim().toLowerCase();
+    const handler = setTimeout(async () => {
+      const q = searchQuery.trim();
+      setShowAutocomplete(!!q);
+
+      if (q.length >= 2) {
+        try {
+          const resp = await collectionService.search({ q, page: 1, pageSize: 50 });
+          setFilteredCollections(resp.items);
+          setVisibleCount(12);
+          return;
+        } catch (e) {
+          // Fallback to client-side filter if server search fails
+        }
+      }
+
       const next = q
-        ? collections.filter((c) => c.name.toLowerCase().includes(q))
+        ? collections.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()))
         : collections;
       setFilteredCollections(next);
       setVisibleCount(12);
-      setShowAutocomplete(!!q);
-    }, 200);
+    }, 250);
     return () => clearTimeout(handler);
   }, [searchQuery, collections]);
 

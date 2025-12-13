@@ -94,6 +94,48 @@ async def list_collections(current_user: User = Depends(get_current_user)):
     return [_collection_to_response(coll, current_user) for coll in collections]
 
 
+@router.get("/search", response_model=PaginatedResponse)
+async def search_collections(
+    q: Optional[str] = Query(None, description="Search query for collection name"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Search user's collections by name with pagination.
+    Non-breaking addition: original list endpoint remains unchanged.
+    """
+    # Load user collections
+    collection_ids = [str(coll.id) for coll in (current_user.collections or [])]
+
+    collections: List[Collection] = []
+    for coll_id in collection_ids:
+        coll = await collection_service.get_collection_by_id(coll_id)
+        if coll:
+            collections.append(coll)
+
+    # Filter by query
+    if q:
+        q_lower = q.strip().lower()
+        collections = [c for c in collections if (c.name or "").lower().find(q_lower) != -1]
+
+    # Pagination
+    total = len(collections)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    page_items = collections[start_idx:end_idx]
+
+    items = [_collection_to_response(c, current_user) for c in page_items]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_more=end_idx < total
+    )
+
+
 @router.post("", response_model=CollectionResponse, status_code=201)
 async def create_collection(
     data: CreateCollectionRequest,

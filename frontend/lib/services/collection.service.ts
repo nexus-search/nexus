@@ -24,6 +24,19 @@ class CollectionService {
   }
 
   /**
+   * Search collections with pagination
+   */
+  async search(params: { q?: string; page?: number; pageSize?: number } = {}): Promise<PaginatedResponse<CollectionResponse>> {
+    const queryParams = new URLSearchParams();
+    if (params.q) queryParams.append('q', params.q);
+    if (params.page) queryParams.append('page', String(params.page));
+    if (params.pageSize) queryParams.append('page_size', String(params.pageSize));
+
+    const endpoint = `/api/v1/collections/search${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return get<PaginatedResponse<CollectionResponse>>(endpoint, { requireAuth: true });
+  }
+
+  /**
    * Get collection by ID
    */
   async getById(id: string): Promise<CollectionResponse> {

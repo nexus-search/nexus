@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import type { MediaItemResponse } from '@/lib/types/api';
 
 export default function Home() {
-  const [selectedMedia, setSelectedMedia] = useState<MediaItemResponse | null>(null);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState<number>(-1);
   const [saveModalMedia, setSaveModalMedia] = useState<MediaItemResponse | null>(null);
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -82,18 +82,24 @@ export default function Home() {
             onLoadMore={loadMore}
             hasMore={hasMore}
             loading={loading}
-            onItemClick={setSelectedMedia}
+            onItemClick={(item) => {
+              const idx = items.findIndex(i => i.id === item.id);
+              setSelectedMediaIndex(idx);
+            }}
             onSaveClick={handleSaveClick}
           />
         )}
       </main>
 
       {/* Media Viewer Modal */}
-      {selectedMedia && (
+      {selectedMediaIndex >= 0 && items[selectedMediaIndex] && (
         <MediaViewer
-          mediaUrl={selectedMedia.mediaUrl}
-          mediaType={selectedMedia.mediaType}
-          onClose={() => setSelectedMedia(null)}
+          mediaUrl={items[selectedMediaIndex].mediaUrl || items[selectedMediaIndex].thumbnailUrl || ''}
+          mediaType={items[selectedMediaIndex].mediaType}
+          onClose={() => setSelectedMediaIndex(-1)}
+          items={items}
+          currentIndex={selectedMediaIndex}
+          onNavigate={(idx) => setSelectedMediaIndex(idx)}
         />
       )}
 

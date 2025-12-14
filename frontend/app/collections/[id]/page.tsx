@@ -101,7 +101,7 @@ export default function CollectionDetailPage({ params }: CollectionPageProps) {
     try {
       const results = await searchService.searchByText({
         query: query.trim(),
-        scope: 'all', // Search all media (public + private) but filter by collection
+        scope: 'library', // Search user's library within collection
         collectionId: id,
         page: 1,
         pageSize: 100,

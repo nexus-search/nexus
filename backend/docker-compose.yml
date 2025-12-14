@@ -77,6 +77,18 @@ services:
       timeout: 3s
       retries: 3
 
+  kibana:
+    image: kibana:9.2.0
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - XPACK_SECURITY_ENABLED=false
+    depends_on:
+      - elasticsearch
+    networks:
+      - nexus-network
+
 volumes:
   mongodb_data:
   elasticsearch_data:

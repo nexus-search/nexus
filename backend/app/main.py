@@ -48,7 +48,8 @@ def create_app() -> FastAPI:
     if settings.API_HOST == "0.0.0.0":
         allowed_origins.extend([
             "http://localhost:8000",
-            "http://127.0.0.1:8000"
+            "http://127.0.0.1:8000",
+            "https://nexus-phi-smoky.vercel.app/"
         ])
     else:
         allowed_origins.append(f"http://{settings.API_HOST}:{settings.API_PORT}")

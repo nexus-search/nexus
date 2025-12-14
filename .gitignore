@@ -1,2 +1,4 @@
 STATE.md
 backend/infra/.terraform/providers/registry.terraform.io/hashicorp
+backend/infra/terraform.tfstate
+backend/infra/terraform.tfstate.backup

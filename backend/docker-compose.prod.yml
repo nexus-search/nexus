@@ -1,0 +1,53 @@
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_RELOAD=true
+      - FRONTEND_ORIGIN=http://localhost:3000
+      - MONGODB_URL=mongodb+srv://omar:omar123@ebanking-cluster.9vckujg.mongodb.net/
+      - MONGODB_DB=mydatabase
+      - JWT_SECRET_KEY=your-secret-key-here-change-in-production
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - DEFAULT_USER_QUOTA_GB=1
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_USER=elastic
+      - ELASTICSEARCH_PASSWORD=dm_4Moz_XGVWIRHG910C
+      - ELASTICSEARCH_INDEX=media_embeddings
+      - CLOUDINARY_CLOUD_NAME=dlllfzyzo
+      - CLOUDINARY_API_KEY=987121145237775
+      - CLOUDINARY_API_SECRET=BT0TdlqmiJ6J4_CclgIy4Uqi2vg
+    volumes:
+      - ../../uploads:/app/uploads
+      - ./scripts/data:/app/scripts/data
+    depends_on:
+      - mongodb
+      - elasticsearch
+    networks:
+      - nexus-network
+
+  elasticsearch:
+    image: elasticsearch:9.2.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - nexus-network
+
+volumes:
+  mongodb_data:
+  elasticsearch_data:
+
+networks:
+  nexus-network:
+    driver: bridge

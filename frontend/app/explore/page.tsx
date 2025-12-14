@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import MasonryGrid from '@/components/MasonryGrid';
@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { searchService } from '@/lib/services/search.service';
 import type { MediaItemResponse } from '@/lib/types/api';
 
-export default function ExplorePage() {
+function ExplorePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading } = useAuth();
@@ -200,5 +200,13 @@ export default function ExplorePage() {
         />
       )}
     </div>
+  );
+}
+
+export default function ExplorePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+      <ExplorePageContent />
+    </Suspense>
   );
 }

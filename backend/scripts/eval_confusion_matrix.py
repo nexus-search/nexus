@@ -32,12 +32,13 @@ from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
 
 # Add parent directory to path so we can import app modules
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app.services.searchservice import SearchService
+from app.persistance.db import init_db
 
 
 def load_coco_split(annot_path: Path):
@@ -85,22 +86,45 @@ def save_confusion(y_true: List[int], y_pred: List[int], labels: List[int], id_t
     cm = confusion_matrix(y_true, y_pred, labels=labels)
     names = [id_to_name[l] for l in labels]
 
+    # Calculate metrics
+    precision, recall, f1, support = precision_recall_fscore_support(y_true, y_pred, labels=labels, average='weighted', zero_division=0)
+    
     csv_path = f"{out_prefix}.csv"
     with open(csv_path, "w") as f:
         f.write("," + ",".join(names) + "\n")
         for i, row in enumerate(cm):
             f.write(names[i] + "," + ",".join(map(str, row)) + "\n")
 
-    plt.figure(figsize=(max(8, len(labels) * 0.6), max(6, len(labels) * 0.6)))
-    sns.heatmap(cm, annot=False, cmap="Reds", xticklabels=names, yticklabels=names)
-    plt.xlabel("Predicted")
-    plt.ylabel("True")
-    plt.title(out_prefix.name)
+    # Set dark background style
+    plt.style.use('dark_background')
+    
+    fig = plt.figure(figsize=(max(10, len(labels) * 0.7), max(8, len(labels) * 0.7)))
+    fig.patch.set_facecolor('black')
+    
+    ax = plt.subplot(111)
+    ax.set_facecolor('black')
+    
+    # Create heatmap with red color scheme
+    sns.heatmap(cm, annot=True, fmt='d', cmap="Reds", xticklabels=names, yticklabels=names,
+                cbar_kws={'label': 'Count'}, linewidths=0.5, linecolor='darkred')
+    
+    plt.xlabel("Predicted", color='white', fontsize=12, fontweight='bold')
+    plt.ylabel("True", color='white', fontsize=12, fontweight='bold')
+    
+    # Add metrics to title
+    title = f"{out_prefix.name}\nPrecision: {precision:.3f} | Recall: {recall:.3f} | F1: {f1:.3f}"
+    plt.title(title, color='white', fontsize=14, fontweight='bold', pad=20)
+    
+    plt.xticks(rotation=45, ha='right', color='white')
+    plt.yticks(rotation=0, color='white')
+    
     plt.tight_layout()
     png_path = f"{out_prefix}.png"
-    plt.savefig(png_path)
+    plt.savefig(png_path, facecolor='black', edgecolor='none', dpi=150)
     plt.close()
+    
     print(f"Saved {csv_path} and {png_path}")
+    print(f"Metrics - Precision: {precision:.3f}, Recall: {recall:.3f}, F1: {f1:.3f}")
 
 
 async def eval_text(search_service: SearchService, cat_id_to_name, file_to_cat, labels, out_dir: Path, top_k: int):
@@ -155,6 +179,11 @@ async def main():
     ap.add_argument('--top-k', type=int, default=10, help='Top K results to evaluate')
     ap.add_argument('--output-dir', default='scripts/metrics', help='Where to save confusion matrices')
     args = ap.parse_args()
+
+    # Initialize database connection
+    print("Initializing database connection...")
+    await init_db()
+    print("✅ Database initialized")
 
     data_root = Path(args.data_root)
     out_dir = Path(args.output_dir)

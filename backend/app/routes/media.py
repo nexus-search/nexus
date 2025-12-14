@@ -32,11 +32,15 @@ def _image_to_media_response(
     similarity_score: Optional[float] = None
 ) -> MediaItemResponse:
     """Convert Image model to MediaItemResponse."""
+    # Use medium_url or file_path for full image, thumbnail_url for thumbnails
+    media_url = getattr(image, 'medium_url', None) or image.file_path or ""
+    thumbnail_url = getattr(image, 'thumbnail_url', media_url)
+
     return MediaItemResponse(
         id=str(image.id),
         filename=image.title or "untitled",
-        mediaUrl=image.file_path or "",
-        thumbnailUrl=getattr(image, 'thumbnail_url', image.file_path or ""),
+        mediaUrl=media_url,
+        thumbnailUrl=thumbnail_url,
         mediaType="image",
         similarityScore=similarity_score,
         fileSize=getattr(image, 'file_size', 0),
@@ -155,6 +159,38 @@ async def upload_media(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
+@router.get("/public", response_model=PaginatedResponse)
+async def list_public_media(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page")
+):
+    """
+    List public media items with pagination. No authentication required.
+
+    Returns:
+        PaginatedResponse with public media items
+    """
+    try:
+        # Get public images with proper database-level pagination
+        public_images = await image_service.repo.find_public(page=page, limit=page_size)
+        total = await image_service.repo.count_public()
+
+        print(f"[DEBUG] Found {len(public_images)} public images, total: {total}, page: {page}, page_size: {page_size}")
+
+        items = [_image_to_media_response(img) for img in public_images]
+
+        return PaginatedResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_more=(page * page_size) < total
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list public media: {str(e)}")
+
+
 @router.get("/{media_id}", response_model=MediaItemResponse)
 async def get_media(media_id: str):
     """
@@ -219,40 +255,88 @@ async def list_user_media(
         PaginatedResponse with user's media items
     """
     try:
-        # Get all images for the user
-        # Note: This is a simplified implementation. In production, you'd want to:
-        # 1. Add owner_id field to Image model
-        # 2. Create a proper query with pagination
-        # 3. Use MongoDB aggregation for better performance
+        # Efficiently query user images from database
+        user_images = await image_service.repo.find_by_owner(
+            owner_id=str(current_user.id),
+            page=page,
+            limit=page_size,
+            visibility=visibility
+        )
 
-        all_images = await image_service.get_all_images()
-
-        # Filter by owner and visibility
-        user_images = [
-            img for img in all_images
-            if getattr(img, 'owner_id', '') == str(current_user.id) and
-            (visibility is None or getattr(img, 'visibility', 'private') == visibility)
-        ]
-
-        # Calculate pagination
-        total = len(user_images)
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        page_images = user_images[start_idx:end_idx]
+        # Get total count
+        total = await image_service.repo.count_by_owner(
+            owner_id=str(current_user.id),
+            visibility=visibility
+        )
 
         # Convert to response models
-        items = [_image_to_media_response(img) for img in page_images]
+        items = [_image_to_media_response(img) for img in user_images]
 
         return PaginatedResponse(
             items=items,
             total=total,
             page=page,
             page_size=page_size,
-            has_more=end_idx < total
+            has_more=page * page_size < total
         )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list media: {str(e)}")
+
+
+@router.patch("/{media_id}", response_model=MediaItemResponse)
+async def update_media(
+    media_id: str,
+    title: Optional[str] = Query(None, description="New title"),
+    description: Optional[str] = Query(None, description="New description"),
+    tags: Optional[str] = Query(None, description="Comma-separated tags"),
+    visibility: Optional[str] = Query(None, description="Visibility: public or private"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update media metadata (title, description, tags, visibility).
+
+    Args:
+        media_id: The ID of the media item
+        title: New title (optional)
+        description: New description (optional)
+        tags: Comma-separated tags (optional)
+        visibility: New visibility setting (optional)
+
+    Returns:
+        MediaItemResponse with updated metadata
+    """
+    try:
+        # Get the image
+        image = await Image.get(media_id)
+        if not image:
+            raise HTTPException(status_code=404, detail="Media not found")
+
+        # Verify ownership
+        if getattr(image, 'owner_id', '') != str(current_user.id):
+            raise HTTPException(status_code=403, detail="You don't have permission to edit this media")
+
+        # Update fields if provided
+        if title is not None:
+            image.title = title
+        if description is not None:
+            image.description = description
+        if tags is not None:
+            image.tags = [tag.strip() for tag in tags.split(',') if tag.strip()]
+        if visibility is not None:
+            if visibility not in ['public', 'private']:
+                raise HTTPException(status_code=400, detail="Visibility must be 'public' or 'private'")
+            image.visibility = visibility
+
+        # Save to MongoDB
+        await image.save()
+
+        return _image_to_media_response(image)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update media: {str(e)}")
 
 
 @router.delete("/{media_id}", response_model=MessageResponse)

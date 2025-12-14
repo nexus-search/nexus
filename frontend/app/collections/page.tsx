@@ -1,109 +1,143 @@
 "use client";
-import Header from '@/components/Header';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Header from '@/components/Header';
+import { useAuth } from '@/contexts/AuthContext';
 import { collectionService } from '@/lib/services/collection.service';
 import type { CollectionResponse } from '@/lib/types/api';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 export default function CollectionsPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [collections, setCollections] = useState<CollectionResponse[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', description: '', isPublic: false });
+  const [newBoardName, setNewBoardName] = useState('');
+  const [newBoardDescription, setNewBoardDescription] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [editingBoard, setEditingBoard] = useState<CollectionResponse | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editBoardName, setEditBoardName] = useState('');
+  const [editBoardDescription, setEditBoardDescription] = useState('');
+  const [updating, setUpdating] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingBoard, setDeletingBoard] = useState<CollectionResponse | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   useEffect(() => {
-    setMounted(true);
     if (!isLoading && !isAuthenticated) {
       router.push('/auth/login');
     }
   }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    loadCollections();
+    if (isAuthenticated) {
+      loadCollections();
+    }
   }, [isAuthenticated]);
 
   const loadCollections = async () => {
     try {
       setLoading(true);
-      const collections = await collectionService.getAll();
-      setCollections(collections);
-    } catch (error: any) {
-      console.error('Failed to load collections:', error);
+      const data = await collectionService.getAll();
+      setCollections(data);
+    } catch (err) {
+      console.error('Failed to load collections:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreate = async () => {
-    if (!formData.name.trim()) {
-      alert('Collection name is required');
+  const handleCreateBoard = async () => {
+    if (!newBoardName.trim()) {
+      toast.error('Board name is required');
       return;
     }
+
+    const toastId = toast.loading('Creating board...');
+
     try {
+      setCreating(true);
       const newCollection = await collectionService.create({
-        name: formData.name,
-        description: formData.description || undefined,
-        isPublic: formData.isPublic,
+        name: newBoardName.trim(),
+        description: newBoardDescription.trim() || undefined,
       });
-      setCollections(prev => [...prev, newCollection]);
+      setCollections([newCollection, ...collections]);
+      toast.success('Board created!', { id: toastId });
       setShowCreateModal(false);
-      setFormData({ name: '', description: '', isPublic: false });
-    } catch (error: any) {
-      console.error('Failed to create collection:', error);
-      alert('Failed to create collection: ' + (error.message || 'Unknown error'));
+      setNewBoardName('');
+      setNewBoardDescription('');
+    } catch (err: any) {
+      console.error('Failed to create board:', err);
+      toast.error(err.message || 'Failed to create board', { id: toastId });
+    } finally {
+      setCreating(false);
     }
   };
 
-  const handleUpdate = async (id: string) => {
-    if (!formData.name.trim()) {
-      alert('Collection name is required');
+  const handleEditBoard = async () => {
+    if (!editingBoard || !editBoardName.trim()) {
+      toast.error('Board name is required');
       return;
     }
+
+    const toastId = toast.loading('Updating board...');
+
     try {
-      const updated = await collectionService.update(id, {
-        name: formData.name,
-        description: formData.description || undefined,
-        isPublic: formData.isPublic,
+      setUpdating(true);
+      const updated = await collectionService.update(editingBoard.id, {
+        name: editBoardName.trim(),
+        description: editBoardDescription.trim() || undefined,
       });
-      setCollections(prev => prev.map(c => c.id === id ? updated : c));
-      setEditingId(null);
-      setFormData({ name: '', description: '', isPublic: false });
-    } catch (error: any) {
-      console.error('Failed to update collection:', error);
-      alert('Failed to update collection: ' + (error.message || 'Unknown error'));
+      setCollections(collections.map(c => c.id === updated.id ? updated : c));
+      toast.success('Board updated!', { id: toastId });
+      setShowEditModal(false);
+      setEditingBoard(null);
+      setEditBoardName('');
+      setEditBoardDescription('');
+    } catch (err: any) {
+      console.error('Failed to update board:', err);
+      toast.error(err.message || 'Failed to update board', { id: toastId });
+    } finally {
+      setUpdating(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this collection? This will not delete the media files.')) return;
+  const handleDeleteBoard = async () => {
+    if (!deletingBoard) return;
+
+    const toastId = toast.loading('Deleting board...');
+
     try {
-      await collectionService.delete(id);
-      setCollections(prev => prev.filter(c => c.id !== id));
-    } catch (error: any) {
-      console.error('Failed to delete collection:', error);
-      alert('Failed to delete collection: ' + (error.message || 'Unknown error'));
+      setDeleting(true);
+      await collectionService.delete(deletingBoard.id);
+      setCollections(collections.filter(c => c.id !== deletingBoard.id));
+      toast.success('Board deleted', { id: toastId });
+      setShowDeleteConfirm(false);
+      setDeletingBoard(null);
+    } catch (err: any) {
+      console.error('Failed to delete board:', err);
+      toast.error(err.message || 'Failed to delete board', { id: toastId });
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const startEdit = (collection: CollectionResponse) => {
-    setEditingId(collection.id);
-    setFormData({
-      name: collection.name,
-      description: collection.description || '',
-      isPublic: collection.isPublic || false,
-    });
+  const openEditModal = (collection: CollectionResponse) => {
+    setEditingBoard(collection);
+    setEditBoardName(collection.name);
+    setEditBoardDescription(collection.description || '');
+    setShowEditModal(true);
+    setOpenDropdown(null);
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setFormData({ name: '', description: '', isPublic: false });
+  const openDeleteConfirm = (collection: CollectionResponse) => {
+    setDeletingBoard(collection);
+    setShowDeleteConfirm(true);
+    setOpenDropdown(null);
   };
 
   if (!isAuthenticated) {
@@ -111,274 +145,281 @@ export default function CollectionsPage() {
   }
 
   return (
-    <div className="relative bg-gray-950 min-h-screen flex flex-col overflow-hidden">
-      {/* Premium Animated Background */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob" />
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-pink-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000" />
-        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-fuchsia-500/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(168,85,247,0.1),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-      </div>
-
+    <div className="min-h-screen bg-white">
       <Header />
       
-      <main className="relative flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className={`mb-8 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-1 h-12 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full" />
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-300 via-pink-300 to-fuchsia-300 bg-clip-text text-transparent">
-                  My Collections
-                </h1>
-                <p className="text-gray-400 text-sm mt-1">Organize your media into collections</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Create Collection
-            </button>
-          </div>
+      <main className="max-w-[1600px] mx-auto px-4 pt-24 pb-12">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">Your Boards</h1>
+          <p className="text-gray-600">Organize and share your collections</p>
         </div>
 
+        {/* Create Button */}
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="mb-8 inline-flex items-center gap-2 px-6 py-3 bg-[#e60023] text-white rounded-full font-semibold hover:bg-[#ad081b] transition-colors shadow-lg"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Create board
+        </button>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="aspect-[3/4] rounded-2xl bg-gray-100 animate-pulse" />
+            ))}
+          </div>
+        )}
+
         {/* Collections Grid */}
-        <div className={`transition-all duration-700 delay-100 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="relative bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-xl rounded-2xl h-64 overflow-hidden border border-white/5"
-                  style={{ animationDelay: `${i * 50}ms` }}
+        {!loading && collections.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {collections.map((collection) => (
+              <div key={collection.id} className="group relative">
+                <Link
+                  href={`/collections/${collection.id}`}
+                  className="block cursor-pointer"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
-                </div>
-              ))}
-            </div>
-          ) : collections.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {collections.map((collection, index) => (
-                <div
-                  key={collection.id || collection.id || `collection-${collection.name}`}
-                  className="relative group bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-gray-800 hover:border-purple-500/50 transition-all duration-300 overflow-hidden"
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  {editingId === collection.id ? (
-                    // Edit Mode
-                    <div className="p-6 space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Name</label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
-                          placeholder="Collection name"
-                        />
+                  <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-gray-100 relative hover:opacity-90 transition-opacity">
+                    {collection.coverImageUrl ? (
+                      <img
+                        src={collection.coverImageUrl}
+                        alt={collection.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <svg className="w-16 h-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-                        <textarea
-                          value={formData.description}
-                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                          className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
-                          placeholder="Description (optional)"
-                          rows={3}
-                        />
-                      </div>
-                      <label className="flex items-center gap-2 text-gray-300">
-                        <input
-                          type="checkbox"
-                          checked={formData.isPublic}
-                          onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
-                          className="w-4 h-4 bg-gray-900 border-gray-800 rounded text-purple-600 focus:ring-purple-500 focus:ring-offset-0"
-                        />
-                        <span className="text-sm">Public collection</span>
-                      </label>
-                      <div className="flex gap-2 pt-2">
-                        <button
-                          onClick={() => handleUpdate(collection.id)}
-                          className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="flex-1 px-4 py-2 bg-gray-800 text-white font-medium rounded-lg hover:bg-gray-700 transition-all"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    // View Mode
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <h3 className="font-semibold text-gray-900 truncate">{collection.name}</h3>
+                    <p className="text-sm text-gray-500">{collection.mediaCount} pins</p>
+                  </div>
+                </Link>
+                
+                {/* Dropdown Menu */}
+                <div className="absolute top-2 right-2 z-10">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setOpenDropdown(openDropdown === collection.id ? null : collection.id);
+                    }}
+                    className="w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex items-center justify-center hover:bg-white transition-colors"
+                  >
+                    <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                      <circle cx="12" cy="5" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="12" cy="19" r="2" />
+                    </svg>
+                  </button>
+                  
+                  {openDropdown === collection.id && (
                     <>
-                      <div className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <h3 className="text-xl font-bold text-white mb-2">{collection.name}</h3>
-                            {collection.description && (
-                              <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed">{collection.description}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span className="text-sm text-gray-400 font-medium">{collection.mediaCount || 0} items</span>
-                          </div>
-                          {collection.isPublic ? (
-                            <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-green-500/10 text-green-400 border border-green-500/30">
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Public
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/30">
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                              </svg>
-                              Private
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Link
-                            href={`/collections/${collection.id}`}
-                            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all text-center text-sm font-semibold"
-                          >
-                            View
-                          </Link>
-                          <button
-                            onClick={() => startEdit(collection)}
-                            className="px-4 py-2.5 bg-gray-800 text-gray-300 rounded-lg hover:bg-gray-700 hover:text-white transition-all text-sm font-medium"
-                            title="Edit"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(collection.id)}
-                            className="px-4 py-2.5 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-sm font-medium border border-red-500/30"
-                            title="Delete"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setOpenDropdown(null)}
+                      />
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 overflow-hidden">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openEditModal(collection);
+                          }}
+                          className="w-full px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-3"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit board
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openDeleteConfirm(collection);
+                          }}
+                          className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete board
+                        </button>
                       </div>
                     </>
                   )}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-20">
-              <div className="relative inline-flex items-center justify-center w-24 h-24 mb-8">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full blur-2xl animate-pulse"></div>
-                <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-gray-800/50 to-gray-900/50 border border-white/10 flex items-center justify-center">
-                  <svg className="w-10 h-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                </div>
               </div>
-              <h3 className="text-2xl font-bold text-white mb-3">No Collections Yet</h3>
-              <p className="text-gray-400 mb-8 max-w-md mx-auto">
-                Create your first collection to organize your media files into meaningful groups.
-              </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="group relative px-8 py-4 rounded-xl font-semibold text-white overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/50"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 transition-transform duration-300 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <span className="relative flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Create Your First Collection
-                </span>
-              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && collections.length === 0 && (
+          <div className="text-center py-20">
+            <div className="w-20 h-20 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
             </div>
-          )}
-        </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Create your first board</h3>
+            <p className="text-gray-600 mb-6">Organize your pins into boards</p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-6 py-3 bg-[#e60023] text-white rounded-full font-semibold hover:bg-[#ad081b] transition-colors"
+            >
+              Create board
+            </button>
+          </div>
+        )}
       </main>
 
-      {/* Create Modal */}
+      {/* Create Board Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-gray-900 rounded-2xl max-w-md w-full border border-gray-800 shadow-2xl animate-scaleIn">
-            <div className="p-6 border-b border-gray-800">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-                Create Collection
-              </h2>
-            </div>
-            <div className="p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold mb-4">Create board</h2>
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Name *
+                </label>
                 <input
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
-                  placeholder="My Collection"
+                  value={newBoardName}
+                  onChange={(e) => setNewBoardName(e.target.value)}
+                  placeholder="Like Places to Go or Recipes to Make"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e60023] focus:border-transparent"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (optional)
+                </label>
                 <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
-                  placeholder="Optional description"
+                  value={newBoardDescription}
+                  onChange={(e) => setNewBoardDescription(e.target.value)}
+                  placeholder="What's your board about?"
                   rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e60023] focus:border-transparent resize-none"
                 />
               </div>
-              <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.isPublic}
-                  onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
-                  className="w-4 h-4 bg-gray-900 border-gray-800 rounded text-purple-600 focus:ring-purple-500 focus:ring-offset-0"
-                />
-                <span className="text-sm">Make this collection public</span>
-              </label>
             </div>
-            <div className="p-6 bg-gray-800/50 border-t border-gray-800 flex gap-3">
-              <button
-                onClick={handleCreate}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all"
-              >
-                Create
-              </button>
+            <div className="flex gap-3 mt-6">
               <button
                 onClick={() => {
                   setShowCreateModal(false);
-                  setFormData({ name: '', description: '', isPublic: false });
+                  setNewBoardName('');
+                  setNewBoardDescription('');
                 }}
-                className="flex-1 px-4 py-3 bg-gray-800 text-white font-semibold rounded-lg hover:bg-gray-700 transition-all"
+                disabled={creating}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 disabled:opacity-50 transition-colors"
               >
                 Cancel
+              </button>
+              <button
+                onClick={handleCreateBoard}
+                disabled={creating || !newBoardName.trim()}
+                className="flex-1 px-4 py-3 bg-[#e60023] text-white rounded-full font-semibold hover:bg-[#ad081b] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {creating ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Board Modal */}
+      {showEditModal && editingBoard && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold mb-4">Edit board</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  value={editBoardName}
+                  onChange={(e) => setEditBoardName(e.target.value)}
+                  placeholder="Board name"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e60023] focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (optional)
+                </label>
+                <textarea
+                  value={editBoardDescription}
+                  onChange={(e) => setEditBoardDescription(e.target.value)}
+                  placeholder="What's your board about?"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e60023] focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingBoard(null);
+                  setEditBoardName('');
+                  setEditBoardDescription('');
+                }}
+                disabled={updating}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 disabled:opacity-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditBoard}
+                disabled={updating || !editBoardName.trim()}
+                className="flex-1 px-4 py-3 bg-[#e60023] text-white rounded-full font-semibold hover:bg-[#ad081b] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {updating ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && deletingBoard && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold mb-4">Delete this board?</h2>
+            <p className="text-gray-600 mb-6">
+              Once you delete <span className="font-semibold">{deletingBoard.name}</span>, you can't undo it!
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeletingBoard(null);
+                }}
+                disabled={deleting}
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 disabled:opacity-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteBoard}
+                disabled={deleting}
+                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-full font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>

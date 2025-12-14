@@ -15,18 +15,46 @@ class ESClient:
         )
 
         self.index_name = os.getenv("ELASTICSEARCH_INDEX", "media_embeddings")
+        # Get embedding dimension from env, default to 512 for clip-vit-base-patch32
+        self.embedding_dims = int(os.getenv("EMBEDDING_DIMS", "512"))
 
     async def create_index(self):
         mapping = {
             "mappings": {
                 "properties": {
                     "image_id": {"type": "keyword"},
-                    "embedding": {"type": "dense_vector", "dims": 512}
+                    "embedding": {"type": "dense_vector", "dims": self.embedding_dims}
                 }
             }
         }
-        if not await self.es.indices.exists(index=self.index_name):
-            await self.es.indices.create(index=self.index_name, body=mapping)
+        try:
+            if not await self.es.indices.exists(index=self.index_name):
+                print(f"📝 Creating Elasticsearch index: {self.index_name}")
+                await self.es.indices.create(index=self.index_name, body=mapping)
+                print(f"✅ Index created with {self.embedding_dims} dims")
+            else:
+                # Check if existing index has the correct dims
+                try:
+                    index_settings = await self.es.indices.get(index=self.index_name)
+                    existing_dims = index_settings[self.index_name]["mappings"]["properties"]["embedding"].get("dims")
+                    if existing_dims != self.embedding_dims:
+                        print(f"⚠️  Index has {existing_dims} dims but model expects {self.embedding_dims} dims")
+                        print(f"🔄 Recreating index {self.index_name}...")
+                        await self.es.indices.delete(index=self.index_name)
+                        await self.es.indices.create(index=self.index_name, body=mapping)
+                        print(f"✅ Index recreated with {self.embedding_dims} dims")
+                except Exception as e:
+                    print(f"⚠️  Error checking index: {e}")
+                    print(f"🔄 Forcing index recreation...")
+                    try:
+                        await self.es.indices.delete(index=self.index_name)
+                    except:
+                        pass
+                    await self.es.indices.create(index=self.index_name, body=mapping)
+                    print(f"✅ Index recreated")
+        except Exception as e:
+            print(f"❌ Error creating/checking index: {e}")
+            raise
 
     async def index_image(self, image_id: str, embedding: List[float]):
         doc = {"image_id": image_id, "embedding": embedding}
@@ -36,6 +64,12 @@ class ESClient:
         
 
     async def search_similar(self, query_embedding: List[float], top_k: int = 10) -> List[str]:
+        # Validate embedding dimension
+        if len(query_embedding) != self.embedding_dims:
+            print(f"❌ Embedding dimension mismatch: got {len(query_embedding)}, expected {self.embedding_dims}")
+            print(f"⚠️  This usually means the model was changed but index wasn't recreated")
+            return []
+        
         query = {
             "size": top_k,
             "query": {
@@ -48,8 +82,13 @@ class ESClient:
                 }
             }
         }
-        response = await self.es.search(index=self.index_name, body=query)
-        return [hit["_source"]["image_id"] for hit in response["hits"]["hits"]]
+        try:
+            response = await self.es.search(index=self.index_name, body=query)
+            return [hit["_source"]["image_id"] for hit in response["hits"]["hits"]]
+        except Exception as e:
+            print(f"❌ Elasticsearch search error: {e}")
+            print(f"Query: {query}")
+            raise
 
     async def delete_document(self, image_id: str):
         await self.es.delete(index=self.index_name, id=image_id)

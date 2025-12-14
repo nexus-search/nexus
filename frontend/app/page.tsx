@@ -1,274 +1,166 @@
 "use client";
+import { useState, useEffect } from 'react';
 import Header from '@/components/Header';
-import MediaGrid from '@/components/MediaGrid';
-import SearchBar from '@/components/SearchBar';
-import { useEffect, useState } from 'react';
-import { searchService } from '@/lib/services/search.service';
-import type { MediaItemResponse } from '@/lib/types/api';
 import { useRouter } from 'next/navigation';
-import MediaViewer from '@/components/MediaViewer';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
   const router = useRouter();
-  const [items, setItems] = useState<MediaItemResponse[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [searching, setSearching] = useState<boolean>(false);
-  const [active, setActive] = useState<MediaItemResponse | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const { isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    setMounted(true);
-    setLoading(false);
-  }, []);
-
-  const handleSearchText = async (q: string) => {
-    router.push(`/search/text?q=${encodeURIComponent(q)}`);
-  };
-
-  const handleSearchFile = async (file: File) => {
-    router.push('/search/media');
-  };
+  const animals = [
+    { name: 'Dogs', image: '2cdeb9f8b327e5533ed5e1c1b48c8859.jpg', rows: 2, cols: 1 },
+    { name: 'Snakes', image: 'cb4b9a2cb3776bdd4fca42bd86b10fef.jpg', rows: 1, cols: 1 },
+    { name: 'Tigers', image: '9ca4ff7a6524188fc44edd98e476b172.jpg', rows: 2, cols: 1 },
+    { name: 'Pigs', image: 'aa4d18d5f9441e6891f4ec82bfc26cbb.jpg', rows: 1, cols: 1 },
+    { name: 'Elephants', image: '69d3ea63308b27f122747fccda09734a.jpg', rows: 1, cols: 1 },
+    { name: 'Bears', image: '97c38100389441e513fca39875e0c59d.jpg', rows: 2, cols: 1 },
+    { name: 'Turkeys', image: '327bba844f34207157fbecec3a3473b1.jpg', rows: 1, cols: 1 },
+    { name: 'Rabbits', image: 'cb4b9a2cb3776bdd4fca42bd86b10fef.jpg', rows: 1, cols: 1 },
+    { name: 'Zebras', image: '343a584535b96bb7302265eecd251050.jpg', rows: 2, cols: 1 },
+    { name: 'Lions', image: 'b3ea879d7ea28fe77d2b39f4207c36f2.jpg', rows: 1, cols: 1 },
+    { name: 'Wolves', image: '867a5e1dd74ccc04c9baa2064695a75d.jpg', rows: 1, cols: 1 },
+  ];
 
   return (
-    <div className="relative bg-gray-950 min-h-screen flex flex-col overflow-hidden">
-      {/* Animated Background Gradients */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob" />
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-purple-500/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000" />
-        <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-pink-500/30 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-4000" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.15),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(168,85,247,0.15),transparent_50%)]" />
-        
-        {/* Grid Pattern Overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
-        
-        {/* Spotlight Effect */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-indigo-500/10 via-transparent to-transparent blur-3xl" />
-      </div>
-
+    <div className="min-h-screen bg-white">
       <Header />
-      
-      <main className="relative flex-grow container mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Hero Section */}
-        <section className="text-center py-16 sm:py-20 lg:py-24">
-          {/* Floating Badge */}
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 backdrop-blur-xl mb-6 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-            </span>
-            <span className="text-sm font-medium bg-gradient-to-r from-indigo-300 to-purple-300 bg-clip-text text-transparent">
-              AI-Powered Visual Search
-            </span>
-          </div>
 
-          {/* Main Heading */}
-          <h1 className={`text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-6 leading-tight transition-all duration-700 delay-100 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-            <span className="block bg-gradient-to-r from-indigo-200 via-white to-fuchsia-200 bg-clip-text text-transparent drop-shadow-2xl">
-              Find visually
-            </span>
-            <span className="block bg-gradient-to-r from-fuchsia-200 via-purple-200 to-indigo-200 bg-clip-text text-transparent drop-shadow-2xl">
-              similar media
-            </span>
-          </h1>
+      {/* Hero Section */}
+      <section className="pt-32 pb-16 px-4 text-center max-w-4xl mx-auto">
+        <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-4">
+          Discover Beautiful <span className="text-[#e60023]">Animal Images</span>
+        </h1>
+        <p className="text-xl text-gray-600 mb-8">
+          Explore our curated collection of stunning animal photographs. Search, save, and organize your favorite images.
+        </p>
+        <button
+          onClick={() => router.push('/explore')}
+          className="px-8 py-4 bg-[#e60023] hover:bg-[#ad081b] text-white font-bold rounded-full text-lg transition-colors shadow-lg hover:shadow-xl"
+        >
+          Start Exploring
+        </button>
+      </section>
 
-          <p className={`text-lg sm:text-xl text-gray-300/90 mb-10 max-w-2xl mx-auto leading-relaxed transition-all duration-700 delay-200 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-            Search your library using <span className="text-indigo-300 font-semibold">natural language</span> or an <span className="text-purple-300 font-semibold">example image/video</span>.
-            <br />
-            Powered by advanced AI embeddings.
-          </p>
+      {/* Category Grid - Pinterest Style Masonry */}
+      {/* Category Grid - Pinterest Style Masonry */}
+      <section className="px-4 py-16 max-w-7xl mx-auto">
+        <h2 className="text-3xl font-bold text-gray-900 mb-8">Browse by Category</h2>
+        
+        <style jsx>{`
+          .masonry-grid {
+            display: grid;
+            /* Responsive columns: 2 columns on mobile, 3 on md, 4 on lg */
+            grid-template-columns: repeat(2, 1fr); 
+            /* Set the base unit height for one row */
+            grid-auto-rows: 150px; 
+            /* This is crucial for filling empty spaces */
+            grid-auto-flow: dense;
+          }
+          /* Apply responsive column count using media queries within the style block */
+          @media (min-width: 768px) { /* md breakpoint */
+            .masonry-grid {
+              grid-template-columns: repeat(3, 1fr);
+            }
+          }
+          @media (min-width: 1024px) { /* lg breakpoint */
+            .masonry-grid {
+              grid-template-columns: repeat(4, 1fr);
+            }
+          }
 
-          {/* Search Bar Container */}
-          <div className={`max-w-4xl mx-auto transition-all duration-700 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-            <div className="relative group">
-              {/* Glow Effect */}
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
-              
-              {/* Search Bar */}
-              <div className="relative backdrop-blur-2xl bg-white/[0.07] border border-white/20 rounded-2xl p-5 sm:p-6 shadow-2xl">
-                <SearchBar onSearchText={handleSearchText} onSearch={handleSearchFile} loading={searching} />
-              </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="flex items-center justify-center gap-8 mt-8 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-gray-400">10M+ Media Items</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse animation-delay-1000" />
-                <span className="text-gray-400">99.9% Accuracy</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse animation-delay-2000" />
-                <span className="text-gray-400">&lt;100ms Response</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Trending Section */}
-        <section className="mt-8 mb-16">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-1 h-8 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full" />
-              <h2 className="text-white text-2xl sm:text-3xl font-bold">Trending Now</h2>
-              <div className="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30">
-                <span className="text-xs font-semibold text-indigo-300">LIVE</span>
-              </div>
-            </div>
-            <button 
-              onClick={() => router.push('/results/demo')} 
-              className="group flex items-center gap-2 text-sm font-medium text-violet-300 hover:text-violet-200 transition-all duration-300"
+          /* Item spanning is correct for creating the irregular look */
+          .masonry-item[data-rows="2"] {
+            grid-row: span 2;
+          }
+          
+          .masonry-item[data-cols="2"] {
+            grid-column: span 2;
+          }
+        `}</style>
+        
+        {/* Added gap-4 class for spacing, overriding the old 'gap: 0' */}
+        <div className="masonry-grid gap-4"> 
+          {animals.map((animal, idx) => (
+            <button
+              key={animal.name}
+              onClick={() => router.push(`/explore?q=${encodeURIComponent(animal.name.toLowerCase())}`)}
+              className="group relative rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 masonry-item"
+              data-rows={animal.rows}
+              data-cols={animal.cols}
             >
-              <span>Explore more</span>
-              <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div 
-                  key={i} 
-                  className="relative bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-xl rounded-2xl h-72 overflow-hidden border border-white/5"
-                  style={{ animationDelay: `${i * 100}ms` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="relative">
-              <MediaGrid items={items.slice(0, 6)} onItemClick={setActive} />
-            </div>
-          )}
-        </section>
-
-        {/* Features Section */}
-        <section className="py-16 sm:py-20">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Why Choose <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Nexus Search</span>
-            </h2>
-            <p className="text-gray-400 max-w-2xl mx-auto">
-              Experience the next generation of visual search technology
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            {[
-              {
-                title: 'Visual Similarity',
-                description: 'Find lookalikes using deep embeddings across images and videos.',
-                icon: '🎯',
-                gradient: 'from-indigo-500 to-blue-500',
-                delay: '0ms'
-              },
-              {
-                title: 'Natural Language',
-                description: 'Describe what you want; we search using multimodal models.',
-                icon: '💬',
-                gradient: 'from-purple-500 to-pink-500',
-                delay: '100ms'
-              },
-              {
-                title: 'Fast & Scalable',
-                description: 'Optimized for responsive UX with lazy loading and caching.',
-                icon: '⚡',
-                gradient: 'from-pink-500 to-orange-500',
-                delay: '200ms'
-              }
-            ].map((feature, i) => (
-              <div 
-                key={i}
-                className="group relative rounded-2xl p-[1px] bg-gradient-to-br from-white/20 to-white/5 hover:from-white/30 hover:to-white/10 transition-all duration-500"
-                style={{ animationDelay: feature.delay }}
-              >
-                <div className="relative h-full rounded-2xl p-8 backdrop-blur-2xl bg-gray-900/50 overflow-hidden">
-                  {/* Hover Gradient Background */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500`} />
-                  
-                  {/* Content */}
-                  <div className="relative z-10">
-                    <div className="text-5xl mb-4 transform group-hover:scale-110 transition-transform duration-500">
-                      {feature.icon}
-                    </div>
-                    <h3 className="text-white font-bold text-xl mb-3 group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-indigo-300 group-hover:to-purple-300 group-hover:bg-clip-text transition-all duration-300">
-                      {feature.title}
-                    </h3>
-                    <p className="text-gray-400 text-sm leading-relaxed group-hover:text-gray-300 transition-colors duration-300">
-                      {feature.description}
-                    </p>
-                  </div>
-
-                  {/* Corner Accent */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                </div>
+              {/* Background Image */}
+              <img
+                src={`/images/${animal.image}`}
+                alt={animal.name}
+                className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+              />
+              
+              {/* Overlay gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-70 group-hover:opacity-90 transition-opacity" />
+              
+              {/* Content */}
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-4">
+                <p className="text-white font-bold text-lg text-center px-2 drop-shadow-lg">{animal.name}</p>
               </div>
-            ))}
-          </div>
+            </button>
+          ))}
+        </div>
+      </section> 
 
-          {/* CTA Buttons */}
-          <div className="text-center space-y-4">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button 
-                onClick={() => router.push('/search/text')} 
-                className="group relative px-8 py-4 rounded-xl font-semibold text-white overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-violet-500/50"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-purple-600 transition-transform duration-300 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-r from-violet-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <span className="relative flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                  Try Text Search
-                </span>
-              </button>
-
-              <button 
-                onClick={() => router.push('/search/media')} 
-                className="group relative px-8 py-4 rounded-xl font-semibold text-white overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/50"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-600 transition-transform duration-300 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <span className="relative flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Try Media Search
-                </span>
-              </button>
+      {/* Features Section */}
+      <section className="bg-gray-50 px-4 py-16">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold text-gray-900 mb-12 text-center">Powerful Features</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <div className="bg-white p-8 rounded-2xl shadow-md hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-[#e60023]/10 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-[#e60023]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Smart Search</h3>
+              <p className="text-gray-600">Find animal images by text or upload your own photo to discover similar content.</p>
             </div>
-            <p className="text-sm text-gray-500">No credit card required • Free forever</p>
-          </div>
-        </section>
-      </main>
 
-      {/* Footer */}
-      <footer className="relative bg-gray-900/50 backdrop-blur-xl border-t border-white/5 text-white py-8">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-gray-400">&copy; 2025 Nexus Search. All rights reserved.</p>
-            <div className="flex items-center gap-6">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">Privacy</a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">Terms</a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors duration-300">Contact</a>
+            {/* Feature 2 */}
+            <div className="bg-white p-8 rounded-2xl shadow-md hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-[#e60023]/10 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-[#e60023]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h6a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Organize Boards</h3>
+              <p className="text-gray-600">Create collections to save and organize your favorite animal images.</p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="bg-white p-8 rounded-2xl shadow-md hover:shadow-lg transition-shadow">
+              <div className="w-12 h-12 bg-[#e60023]/10 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-[#e60023]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5.36 4.24l-.707-.707M9 12a3 3 0 106 0 3 3 0 00-6 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">AI-Powered Discovery</h3>
+              <p className="text-gray-600">Find visually similar images using advanced AI embeddings technology.</p>
             </div>
           </div>
         </div>
-      </footer>
+      </section>
 
-      {/* Media Viewer Modal */}
-      {active && (
-        <MediaViewer
-          mediaUrl={active.mediaUrl}
-          mediaType={active.mediaType}
-          onClose={() => setActive(null)}
-        />
-      )}
+      {/* CTA Section */}
+      <section className="px-4 py-16 max-w-4xl mx-auto text-center">
+        <h2 className="text-3xl font-bold text-gray-900 mb-4">Ready to explore?</h2>
+        <p className="text-gray-600 mb-8">Join thousands discovering beautiful animal images today.</p>
+        <button
+          onClick={() => router.push('/explore')}
+          className="px-8 py-4 bg-[#e60023] hover:bg-[#ad081b] text-white font-bold rounded-full text-lg transition-colors shadow-lg hover:shadow-xl"
+        >
+          Start Browsing Now
+        </button>
+      </section>
     </div>
   );
 }

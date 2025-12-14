@@ -19,9 +19,17 @@ class SearchService:
             if img:
                 images.append({
                     "id": str(img.id),
+                    "filename": img.title or "Untitled",
                     "title": img.title,
                     "description": img.description,
-                    "file_path": img.file_path
+                    "mediaUrl": img.file_path or "",
+                    "thumbnailUrl": img.thumbnail_url or img.file_path or "",
+                    "mediaType": "image",
+                    "fileSize": img.file_size or 0,
+                    "uploadDate": img.created_at.isoformat() if img.created_at else "",
+                    "tags": img.tags or [],
+                    "visibility": img.visibility or "public",
+                    "ownerId": str(img.owner_id) if img.owner_id else ""
                 })
         return images
 
@@ -39,9 +47,17 @@ class SearchService:
                 if img:
                     images.append({
                         "id": str(img.id),
+                        "filename": img.title or "Untitled",
                         "title": img.title,
                         "description": img.description,
-                        "file_path": img.file_path
+                        "mediaUrl": img.file_path or "",
+                        "thumbnailUrl": img.thumbnail_url or img.file_path or "",
+                        "mediaType": "image",
+                        "fileSize": img.file_size or 0,
+                        "uploadDate": img.created_at.isoformat() if img.created_at else "",
+                        "tags": img.tags or [],
+                        "visibility": img.visibility or "public",
+                        "ownerId": str(img.owner_id) if img.owner_id else ""
                     })
             return images
         finally:
@@ -81,9 +97,17 @@ class SearchService:
             if img:
                 images.append({
                     "id": str(img.id),
+                    "filename": img.title or "Untitled",
                     "title": img.title,
                     "description": img.description,
-                    "file_path": img.file_path
+                    "mediaUrl": img.file_path or "",
+                    "thumbnailUrl": img.thumbnail_url or img.file_path or "",
+                    "mediaType": "image",
+                    "fileSize": img.file_size or 0,
+                    "uploadDate": img.created_at.isoformat() if img.created_at else "",
+                    "tags": img.tags or [],
+                    "visibility": img.visibility or "public",
+                    "ownerId": str(img.owner_id) if img.owner_id else ""
                 })
 
             # Stop once we have enough results (excluding the source)

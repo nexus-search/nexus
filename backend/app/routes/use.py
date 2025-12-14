@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File, Query
 from app.util.current_user import get_current_user
 from app.services.collectionservice import CollectionService
 from app.services.searchservice import SearchService
 from app.models.image import Image
 from app.services.imageservice import ImageService
+from app.schemas.responses import PaginatedResponse
 
 router = APIRouter(prefix="/use", tags=["use"])
 coll_service = CollectionService()
@@ -57,30 +58,145 @@ async def add_image_to_collection(collection_id: str, image_id: str, current_use
     return {"error": "Collection not found in your profile"}
 
 @router.post("/search/text")
-async def search_text(query: str, top_k: int = 10, current_user=Depends(get_current_user)):
-    results = await search_service.search_by_text(query, top_k)
-    return {"results": results}
+async def search_text(
+    query: str,
+    scope: str = Query('public', regex='^(public|private|all)$'),
+    collection_id: str = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user=Depends(get_current_user)
+):
+    """
+    Search by text query with pagination.
+    Returns media items matching the text query.
+    Optionally filter by collection_id to search within a specific collection.
+    """
+    # Fetch a fixed large set of similar results (enough for most use cases)
+    # This prevents fetching different result sets for each page and avoids
+    # loading non-similar results when similarity results are exhausted
+    max_similar_results = 200
+
+    results = await search_service.search_by_text(query, top_k=max_similar_results)
+
+    # Filter by collection if collection_id is provided
+    if collection_id:
+        collection = await coll_service.get_collection_by_id(collection_id)
+        if collection and collection.images:
+            # Get set of media IDs in this collection
+            collection_media_ids = {str(img.id) for img in collection.images}
+            # Filter results to only include media in this collection
+            results = [r for r in results if r.get('id') in collection_media_ids]
+
+    # Filter by scope
+    if scope == 'public':
+        results = [r for r in results if r.get('visibility') == 'public']
+    elif scope == 'private':
+        results = [r for r in results if r.get('owner_id') == str(current_user.id)]
+
+    # Paginate the fixed result set
+    total = len(results)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    items = results[start_idx:end_idx]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_more=end_idx < total
+    )
 
 @router.post("/search/image")
-async def search_image(file: UploadFile = File(...), top_k: int = 10, current_user=Depends(get_current_user)):
+async def search_image(
+    file: UploadFile = File(...),
+    scope: str = Query('public', regex='^(public|private|all)$'),
+    collection_id: str = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user=Depends(get_current_user)
+):
+    """
+    Search by image with pagination.
+    Upload an image to find visually similar media items.
+    Optionally filter by collection_id to search within a specific collection.
+    """
+    # Fetch a fixed large set of similar results (enough for most use cases)
+    # This prevents fetching different result sets for each page and avoids
+    # loading non-similar results when similarity results are exhausted
+    max_similar_results = 200
+
     image_data = await file.read()
-    results = await search_service.search_by_image(image_data, top_k)
-    return {"results": results}
+    results = await search_service.search_by_image(image_data, top_k=max_similar_results)
+
+    # Filter by collection if collection_id is provided
+    if collection_id:
+        collection = await coll_service.get_collection_by_id(collection_id)
+        if collection and collection.images:
+            # Get set of media IDs in this collection
+            collection_media_ids = {str(img.id) for img in collection.images}
+            # Filter results to only include media in this collection
+            results = [r for r in results if r.get('id') in collection_media_ids]
+
+    # Filter by scope
+    if scope == 'public':
+        results = [r for r in results if r.get('visibility') == 'public']
+    elif scope == 'private':
+        results = [r for r in results if r.get('owner_id') == str(current_user.id)]
+
+    # Paginate the fixed result set
+    total = len(results)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    items = results[start_idx:end_idx]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_more=end_idx < total
+    )
 
 @router.get("/search/similar/{media_id}")
-async def find_similar(media_id: str, top_k: int = 10, current_user=Depends(get_current_user)):
+async def find_similar(
+    media_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user=Depends(get_current_user)
+):
     """
     Find media items similar to a given media item using its embedding.
 
     Args:
         media_id: The ID of the media item to find similar items for
-        top_k: Number of similar items to return (default: 10)
+        page: Page number for pagination
+        page_size: Number of items per page
 
     Returns:
-        Dictionary with results array containing similar media items
+        Paginated list of similar media items
     """
-    results = await search_service.search_by_media_id(media_id, top_k)
-    return {"results": results}
+    # Fetch a fixed large set of similar results (enough for most use cases)
+    # This prevents fetching different result sets for each page
+    max_similar_results = 200
+
+    results = await search_service.search_by_media_id(media_id, top_k=max_similar_results)
+
+    # Total available similar items
+    total = len(results)
+
+    # Paginate the fixed result set
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    items = results[start_idx:end_idx]
+
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_more=end_idx < total
+    )
 
 @router.get("/images")
 async def get_all_images(current_user=Depends(get_current_user)):

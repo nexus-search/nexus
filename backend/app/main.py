@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.routes import auth, use, media, collections
 from app.persistance.db import init_db
+from app.cache.redis_client import redis_client
 from app.config import settings
 
 @asynccontextmanager
@@ -20,12 +21,16 @@ async def lifespan(app: FastAPI):
 
     await init_db()
     print("✅ Database initialized")
+
+    await redis_client.connect()
+
     print(f"✅ API running at http://{settings.API_HOST}:{settings.API_PORT}")
     print(f"✅ Frontend origin: {settings.FRONTEND_ORIGIN}")
 
     yield
 
-    # Shutdown code (if needed)
+    # Shutdown code
+    await redis_client.disconnect()
     print("👋 Server is shutting down...")
 
 def create_app() -> FastAPI:
@@ -37,9 +42,20 @@ def create_app() -> FastAPI:
     )
 
     # CORS middleware
+    allowed_origins = [settings.FRONTEND_ORIGIN]
+
+    # Also allow requests from the API itself (for Swagger UI)
+    if settings.API_HOST == "0.0.0.0":
+        allowed_origins.extend([
+            "http://localhost:8000",
+            "http://127.0.0.1:8000"
+        ])
+    else:
+        allowed_origins.append(f"http://{settings.API_HOST}:{settings.API_PORT}")
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.FRONTEND_ORIGIN],
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

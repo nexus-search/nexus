@@ -22,6 +22,11 @@ export default function MediaPage({ params }: MediaPageProps) {
   const [collections, setCollections] = useState<CollectionResponse[]>([]);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<string>('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editTags, setEditTags] = useState('');
+  const [editVisibility, setEditVisibility] = useState<'public' | 'private'>('private');
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -43,7 +48,7 @@ export default function MediaPage({ params }: MediaPageProps) {
     } catch (error: any) {
       console.error('Failed to load media:', error);
       if (error.message?.includes('404')) {
-        router.push('/library');
+        router.push('/profile');
       }
     } finally {
       setLoading(false);
@@ -59,11 +64,38 @@ export default function MediaPage({ params }: MediaPageProps) {
     }
   };
 
+  const handleEdit = () => {
+    if (!media) return;
+    setEditTitle(media.title || '');
+    setEditDescription(media.description || '');
+    setEditTags(media.tags?.join(', ') || '');
+    setEditVisibility(media.visibility as 'public' | 'private');
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const updated = await mediaService.updateMedia(id, {
+        title: editTitle,
+        description: editDescription,
+        tags: editTags,
+        visibility: editVisibility,
+      });
+      setMedia(updated);
+      setShowEditModal(false);
+      alert('Media updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to update media:', error);
+      alert('Failed to update media: ' + (error.message || 'Unknown error'));
+    }
+  };
+
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this media? This action cannot be undone.')) return;
     try {
       await mediaService.deleteMedia(id);
-      router.push('/library');
+      router.push('/profile');
     } catch (error: any) {
       console.error('Failed to delete media:', error);
       alert('Failed to delete media: ' + (error.message || 'Unknown error'));
@@ -153,10 +185,10 @@ export default function MediaPage({ params }: MediaPageProps) {
       <main className="relative flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-4">
           <Link
-            href="/library"
+            href="/profile"
             className="text-gray-400 hover:text-white transition-colors"
           >
-            ← Back to Library
+            ← Back to Profile
           </Link>
         </div>
 
@@ -247,11 +279,84 @@ export default function MediaPage({ params }: MediaPageProps) {
                     Download
                   </a>
                   <button
+                    onClick={handleEdit}
+                    className="w-full px-4 py-3 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-all font-medium border border-blue-500/30"
+                  >
+                    Edit Media
+                  </button>
+                  <button
                     onClick={handleDelete}
                     className="w-full px-4 py-3 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-all font-medium border border-red-500/30"
                   >
                     Delete Media
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Edit Modal */}
+            {showEditModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
+                <div className="bg-white rounded-2xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-2xl font-bold mb-4">Edit Media</h3>
+                  <form onSubmit={handleSaveEdit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/20"
+                        placeholder="Enter title"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                      <textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/20 resize-none"
+                        placeholder="Enter description"
+                        rows={3}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tags (comma-separated)</label>
+                      <input
+                        type="text"
+                        value={editTags}
+                        onChange={(e) => setEditTags(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/20"
+                        placeholder="e.g., nature, landscape, sunset"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Visibility</label>
+                      <select
+                        value={editVisibility}
+                        onChange={(e) => setEditVisibility(e.target.value as 'public' | 'private')}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[#e60023] focus:ring-2 focus:ring-[#e60023]/20"
+                      >
+                        <option value="private">Private</option>
+                        <option value="public">Public</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowEditModal(false)}
+                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-semibold rounded-full hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 px-4 py-2 bg-[#e60023] text-white font-semibold rounded-full hover:bg-[#ad081b] transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
             )}

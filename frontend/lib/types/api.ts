@@ -118,6 +118,8 @@ export interface SearchImageRequest {
   scope?: SearchScope;
   collectionId?: string;
   topK?: number;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface CreateCollectionRequest {

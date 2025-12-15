@@ -1,114 +1,62 @@
-# ---
-# - name: Deploy Nexus Backend
-#   hosts: all
-#   become: true
-
-#   # Load your encrypted secrets
-#   vars_files:
-#     - secrets.yml
-
-#   vars:
-#     # UPDATE THIS with your real git URL
-#     repo_url: "git@github.com:nexus-search/nexus.git"
-#     # We clone the whole repo here
-#     project_root: "/opt/nexus"
-#     # But we run docker commands inside here
-#     backend_dir: "/opt/nexus/backend"
-
-#   tasks:
-#     - name: Install Dependencies
-#       apt:
-#         name: ['docker.io', 'docker-compose-v2', 'git', 'acl']
-#         state: present
-#         update_cache: yes
-
-#     - name: Start Docker
-#       service:
-#         name: docker
-#         state: started
-#         enabled: yes
-
-#     - name: Clone Repository
-#       git:
-#         repo: "{{ repo_url }}"
-#         dest: "{{ project_root }}"
-#         version: develop # You are on the develop branch in your tree
-#         force: yes
-#         accept_hostkey: yes
-#         key_file: /home/ubuntu/.ssh/id_rsa
-
-#     # We OVERWRITE the file on the server to ensure Mongo is removed
-#     # and Elastic versions are correct, regardless of what's in Git.
-#     - name: Create Clean Production Docker Compose
-#       copy:
-#         dest: "{{ backend_dir }}/docker-compose.prod.yml"
-#         content: |
-#           version: '3.8'
-#           services:
-#             backend:
-#               # Build context is '.' because we run this from inside 'backend/' folder
-#               build: .
-#               container_name: nexus_backend
-#               restart: always
-#               ports:
-#                 - "80:8000"
-#               env_file: .env
-#               depends_on:
-#                 - elasticsearch
-
-#             elasticsearch:
-#               image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
-#               container_name: nexus_elastic
-#               restart: always
-#               environment:
-#                 - discovery.type=single-node
-#                 - xpack.security.enabled=false
-#                 - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
-#               volumes:
-#                 - elasticsearch_data:/usr/share/elasticsearch/data
-
-#           volumes:
-#             elasticsearch_data:
-
-#     - name: Generate .env file
-#       copy:
-#         dest: "{{ backend_dir }}/.env"
-#         content: |
-#           {% for key, value in env_vars.items() %}
-#           {{ key }}={{ value }}
-#           {% endfor %}
-
-#     - name: Build and Deploy
-#       command: docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
-#       args:
-#         chdir: "{{ backend_dir }}" # Important: We run this INSIDE the backend folder
-
 ---
-- name: The "Can You Hear Me Now?" Test
+- name: Deploy Nexus Backend to EC2
   hosts: all
   become: true
 
+  vars:
+    # Destination on the remote server
+    remote_project_path: "/opt/nexus/backend"
+    # Local path relative to this playbook's directory (infra/ansible)
+    # playbook_dir is an Ansible magic variable.
+    local_project_path: "{{ playbook_dir }}/../../"
+
   tasks:
-    # 1. Install Docker (The engine)
+    # 1. Install Docker & Dependencies
     - name: Install Docker Dependencies
       apt:
-        name: ['docker.io', 'python3-docker'] # python3-docker is needed for Ansible to talk to Docker
+        name: ['docker.io', 'docker-compose-v2', 'python3-docker', 'rsync']
         state: present
         update_cache: yes
 
-    - name: Start Docker
+    - name: Start Docker Service
       service:
         name: docker
         state: started
         enabled: yes
 
-    # 2. Run a Test Container
-    # We map Port 80 (Server) -> Port 80 (Container)
-    - name: Run Nginx for Testing
-      docker_container:
-        name: test_web_server
-        image: nginx:latest
-        state: started
-        restart_policy: always
-        ports:
-          - "80:80"
+    # 2. Copy Project Files
+    - name: Ensure project directory exists
+      file:
+        path: "{{ remote_project_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy backend project files to remote
+      synchronize:
+        src: "{{ local_project_path }}"
+        dest: "{{ remote_project_path }}"
+        delete: yes # Optional: removes files on remote that aren't on local
+        rsync_opts:
+          - "--exclude=.venv"
+          - "--exclude=__pycache__"
+          - "--exclude=.git"
+          - "--exclude=infra"
+          - "--exclude=tests"
+
+    # 3. Run Docker Compose
+    - name: Tear down existing services
+      command: docker compose -f docker-compose.prod.yml down
+      args:
+        chdir: "{{ remote_project_path }}"
+      ignore_errors: yes
+
+
+    - name: Start services with Docker Compose (mongodb, elasticsearch, redis)
+      command: sudo docker compose -f docker-compose.prod.yml up mongodb redis elasticsearch -d 
+      args:
+        chdir: "{{ remote_project_path }}"
+
+    - name: Start services with Docker Compose (backend)
+      command: sudo docker compose -f docker-compose.prod.yml up backend --build -d
+      args:
+        chdir: "{{ remote_project_path }}"

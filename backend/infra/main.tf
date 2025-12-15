@@ -9,7 +9,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "eu-north-1" # Stockholm
+  region = "eu-north-1"
 }
 
 # 1. SSH Key
@@ -28,7 +28,7 @@ resource "aws_security_group" "app_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Restrict this to your IP if you can!
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
@@ -64,7 +64,6 @@ resource "aws_instance" "web" {
   }
 }
 
-
 resource "local_file" "ansible_inventory" {
   content = <<EOF
 [web]
@@ -72,7 +71,6 @@ ${aws_instance.web.public_ip} ansible_user=ubuntu ansible_ssh_common_args='-o St
 EOF
   filename = "${path.module}/ansible/inventory.ini"
 }
-
 
 output "server_ip" {
   value = aws_instance.web.public_ip

@@ -1,0 +1,62 @@
+---
+- name: Deploy Nexus Backend to EC2
+  hosts: all
+  become: true
+
+  vars:
+    # Destination on the remote server
+    remote_project_path: "/opt/nexus/backend"
+    # Local path relative to this playbook's directory (infra/ansible)
+    # playbook_dir is an Ansible magic variable.
+    local_project_path: "{{ playbook_dir }}/../../"
+
+  tasks:
+    # 1. Install Docker & Dependencies
+    - name: Install Docker Dependencies
+      apt:
+        name: ['docker.io', 'docker-compose-v2', 'python3-docker', 'rsync']
+        state: present
+        update_cache: yes
+
+    - name: Start Docker Service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    # 2. Copy Project Files
+    - name: Ensure project directory exists
+      file:
+        path: "{{ remote_project_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy backend project files to remote
+      synchronize:
+        src: "{{ local_project_path }}"
+        dest: "{{ remote_project_path }}"
+        delete: yes # Optional: removes files on remote that aren't on local
+        rsync_opts:
+          - "--exclude=.venv"
+          - "--exclude=__pycache__"
+          - "--exclude=.git"
+          - "--exclude=infra"
+          - "--exclude=tests"
+
+    # 3. Run Docker Compose
+    - name: Tear down existing services
+      command: docker compose -f docker-compose.prod.yml down
+      args:
+        chdir: "{{ remote_project_path }}"
+      ignore_errors: yes
+
+
+    - name: Start services with Docker Compose (mongodb, elasticsearch, redis)
+      command: sudo docker compose -f docker-compose.prod.yml up mongodb redis elasticsearch -d 
+      args:
+        chdir: "{{ remote_project_path }}"
+
+    - name: Start services with Docker Compose (backend)
+      command: sudo docker compose -f docker-compose.prod.yml up backend --build -d
+      args:
+        chdir: "{{ remote_project_path }}"
